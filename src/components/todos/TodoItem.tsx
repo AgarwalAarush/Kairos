@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Todo } from '@/types/todo.types'
 import { TodoParser } from '@/lib/utils/todoParser'
 import { Button } from '@/components/ui/button'
@@ -59,6 +59,20 @@ export default function TodoItem({
     todo.work_date ? new Date(todo.work_date) : undefined
   )
 
+  // Handle escape key to cancel editing
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isEditing) {
+        handleCancelEdit()
+      }
+    }
+
+    if (isEditing) {
+      document.addEventListener('keydown', handleEscape)
+      return () => document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isEditing])
+
   const handleSaveEdit = async () => {
     if (!editTitle.trim()) return
 
@@ -97,8 +111,8 @@ export default function TodoItem({
 
   return (
     <Card className={`transition-all-fast ${todo.completed ? 'opacity-60' : ''} animate-fade-in`}>
-      <CardContent className="p-3">
-        <div className="flex items-start gap-3">
+      <CardContent className="p-2">
+        <div className="flex items-start gap-2">
           {showSelectionCheckbox && (
             <Checkbox
               checked={isSelected}
@@ -115,7 +129,10 @@ export default function TodoItem({
             className="mt-1"
           />
           
-          <div className="flex-1 min-w-0">
+          <div 
+            className="flex-1 min-w-0 cursor-pointer" 
+            onDoubleClick={() => setIsEditing(true)}
+          >
             {isEditing ? (
               <div className="space-y-3">
                 <Input
@@ -160,65 +177,71 @@ export default function TodoItem({
                 </div>
               </div>
             ) : (
-              <>
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className={`font-medium ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
-                    {todo.title}
-                  </h3>
-                  {todo.priority && (
-                    <Badge variant="outline" className={`text-xs ${getPriorityColor(todo.priority)}`}>
-                      {TodoParser.getPriorityLabel(todo.priority)} {TodoParser.getPriorityIcon(todo.priority)}
-                    </Badge>
-                  )}
+              <div className="flex gap-3">
+                {/* Left side: Title, dates, tags, projects */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className={`font-medium ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
+                      {todo.title}
+                    </h3>
+                    {todo.priority && (
+                      <Badge variant="outline" className={`text-xs ${getPriorityColor(todo.priority)}`}>
+                        {TodoParser.getPriorityLabel(todo.priority)} {TodoParser.getPriorityIcon(todo.priority)}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+                    {todo.tags && todo.tags.length > 0 && (
+                      <div className="flex gap-1">
+                        {todo.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            #{tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {todo.project && (
+                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                        @{todo.project}
+                      </Badge>
+                    )}
+
+                    {todo.due_date && (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        <span className={
+                          new Date(todo.due_date) < new Date() && !todo.completed
+                            ? 'text-red-600 font-medium'
+                            : ''
+                        }>
+                          Due: {format(new Date(todo.due_date), 'MMM d')}
+                          {new Date(todo.due_date) < new Date() && !todo.completed && ' (Overdue)'}
+                        </span>
+                      </div>
+                    )}
+
+                    {todo.work_date && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        <span>Work: {format(new Date(todo.work_date), 'MMM d')}</span>
+                      </div>
+                    )}
+                    
+                    <span>Created: {format(new Date(todo.created_at), 'MMM d, yyyy')}</span>
+                  </div>
                 </div>
 
+                {/* Right side: Description */}
                 {todo.description && (
-                  <p className={`text-sm mb-1 ${todo.completed ? 'line-through text-muted-foreground' : 'text-muted-foreground'}`}>
-                    {todo.description}
-                  </p>
+                  <div className="flex-shrink-0 w-2/5 ml-4">
+                    <p className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : 'text-muted-foreground'}`}>
+                      {todo.description}
+                    </p>
+                  </div>
                 )}
-
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  {todo.tags && todo.tags.length > 0 && (
-                    <div className="flex gap-1">
-                      {todo.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          #{tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {todo.project && (
-                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                      @{todo.project}
-                    </Badge>
-                  )}
-
-                  {todo.due_date && (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      <span className={
-                        new Date(todo.due_date) < new Date() && !todo.completed
-                          ? 'text-red-600 font-medium'
-                          : ''
-                      }>
-                        Due: {format(new Date(todo.due_date), 'MMM d')}
-                        {new Date(todo.due_date) < new Date() && !todo.completed && ' (Overdue)'}
-                      </span>
-                    </div>
-                  )}
-
-                  {todo.work_date && (
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>Work: {format(new Date(todo.work_date), 'MMM d')}</span>
-                    </div>
-                  )}
-                  
-                  <span>Created: {format(new Date(todo.created_at), 'MMM d, yyyy')}</span>
-                </div>
-              </>
+              </div>
             )}
           </div>
 
