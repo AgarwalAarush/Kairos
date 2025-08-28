@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { TodoFilters, TodoSort } from '@/types/todo.types'
+import { TodoFilters, TodoSort, TodoSortOption } from '@/types/todo.types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -21,7 +21,6 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { 
-  Filter, 
   X, 
   Search, 
   SortAsc, 
@@ -59,7 +58,7 @@ export default function TodoFiltersComponent({
       onFiltersChange({ ...filters, search: searchTerm || undefined })
     }, 300)
     return () => clearTimeout(debounce)
-  }, [searchTerm])
+  }, [searchTerm]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasActiveFilters = !!(
     filters.completed !== undefined ||
@@ -111,7 +110,7 @@ export default function TodoFiltersComponent({
             value={`${sort.field}-${sort.direction}`}
             onValueChange={(value) => {
               const [field, direction] = value.split('-') as [string, 'asc' | 'desc']
-              onSortChange({ field: field as any, direction })
+              onSortChange({ field: field as TodoSortOption, direction })
             }}
           >
             <SelectTrigger className="w-[180px]">

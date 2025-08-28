@@ -26,7 +26,7 @@ export interface ParsedTodoData {
   }[]
 }
 
-export type TodoSortOption = 'created_at' | 'due_date' | 'priority' | 'title' | 'completed'
+export type TodoSortOption = 'created_at' | 'updated_at' | 'due_date' | 'work_date' | 'priority' | 'title' | 'completed'
 export type SortDirection = 'asc' | 'desc'
 
 export interface TodoFilters {

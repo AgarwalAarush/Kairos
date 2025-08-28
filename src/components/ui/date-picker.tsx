@@ -11,7 +11,9 @@ import {
   Dialog,
   DialogContent,
   DialogTrigger,
+  DialogTitle,
 } from '@/components/ui/dialog'
+import { VisuallyHidden } from '@/components/ui/visually-hidden'
 
 interface DatePickerProps {
   date?: Date
@@ -47,6 +49,9 @@ export function DatePicker({
         </Button>
       </DialogTrigger>
       <DialogContent className="w-auto p-0">
+        <VisuallyHidden>
+          <DialogTitle>Select Date</DialogTitle>
+        </VisuallyHidden>
         <Calendar
           mode="single"
           selected={date}

@@ -5,8 +5,9 @@ const supabase = createClient()
 
 export class TodoService {
   static async getTodos(userId: string, filters?: TodoFilters, sort?: TodoSort): Promise<Todo[]> {
-    let query = supabase
-      .from('todos')
+    let query = (supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from('todos') as any)
       .select('*')
       .eq('user_id', userId)
 
@@ -57,14 +58,15 @@ export class TodoService {
   }
 
   static async createTodo(todoData: Omit<NewTodo, 'user_id'>, userId: string): Promise<Todo> {
-    const { data, error } = await supabase
-      .from('todos')
-      .insert({
-        ...todoData,
-        user_id: userId,
-        due_date: todoData.due_date instanceof Date ? todoData.due_date.toISOString() : todoData.due_date,
-        work_date: todoData.work_date instanceof Date ? todoData.work_date.toISOString() : todoData.work_date,
-      })
+    const insertPayload: NewTodo = {
+      ...todoData,
+      user_id: userId,
+    }
+
+    const { data, error } = await (supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from('todos') as any)
+      .insert(insertPayload)
       .select()
       .single()
 
@@ -77,8 +79,9 @@ export class TodoService {
   }
 
   static async updateTodo(id: string, updates: TodoUpdate): Promise<Todo> {
-    const { data, error } = await supabase
-      .from('todos')
+    const { data, error } = await (supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from('todos') as any)
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
@@ -112,8 +115,9 @@ export class TodoService {
   }
 
   static async getUniqueTags(userId: string): Promise<string[]> {
-    const { data, error } = await supabase
-      .from('todos')
+    const { data, error } = await (supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from('todos') as any)
       .select('tags')
       .eq('user_id', userId)
       .not('tags', 'is', null)
@@ -124,13 +128,14 @@ export class TodoService {
     }
 
     // Flatten and deduplicate tags
-    const allTags = data?.flatMap(row => row.tags || []) || []
+    const allTags: string[] = data?.flatMap((row: { tags: string[] | null }) => row.tags || []) || []
     return [...new Set(allTags)].sort()
   }
 
   static async getUniqueProjects(userId: string): Promise<string[]> {
-    const { data, error } = await supabase
-      .from('todos')
+    const { data, error } = await (supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from('todos') as any)
       .select('project')
       .eq('user_id', userId)
       .not('project', 'is', null)
@@ -141,7 +146,7 @@ export class TodoService {
     }
 
     // Deduplicate projects
-    const projects = data?.map(row => row.project).filter(Boolean) as string[]
+    const projects = data?.map((row: { project: string | null }) => row.project).filter(Boolean) as string[]
     return [...new Set(projects)].sort()
   }
 }

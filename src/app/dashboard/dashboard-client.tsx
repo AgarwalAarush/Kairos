@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { signOut } from '@/lib/auth'
 import { TodoService } from '@/lib/services/todoService'
 import { Button } from '@/components/ui/button'
@@ -40,7 +40,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   // Load todos on mount only (filtering is done client-side)
   useEffect(() => {
     loadTodos()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTodos = async () => {
     try {
@@ -61,7 +61,15 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const handleCreateTodo = async (todoData: TodoFormData) => {
     try {
       setIsCreating(true)
-      const newTodo = await TodoService.createTodo(todoData, user.id)
+      
+      // Convert TodoFormData to the format expected by TodoService
+      const todoPayload = {
+        ...todoData,
+        due_date: todoData.due_date?.toISOString() || null,
+        work_date: todoData.work_date?.toISOString() || null,
+      }
+      
+      const newTodo = await TodoService.createTodo(todoPayload, user.id)
       setTodos(prev => [newTodo, ...prev])
       toast.success('Todo created successfully!')
     } catch (error) {
@@ -141,74 +149,6 @@ export default function DashboardClient({ user }: DashboardClientProps) {
     })
   }
 
-  const handleSelectAll = () => {
-    const allIds = new Set(filteredTodos.map(todo => todo.id))
-    setSelectedTodos(allIds)
-  }
-
-  const handleDeselectAll = () => {
-    setSelectedTodos(new Set())
-  }
-
-  const handleCancelSelection = () => {
-    setSelectedTodos(new Set())
-    setBulkActionMode(false)
-  }
-
-  const handleBulkComplete = async () => {
-    try {
-      setIsUpdating(true)
-      const selectedTodoIds = Array.from(selectedTodos)
-      
-      // Update all selected todos to completed
-      await Promise.all(
-        selectedTodoIds.map(id => TodoService.toggleComplete(id, true))
-      )
-      
-      // Update local state
-      setTodos(prev => 
-        prev.map(todo => 
-          selectedTodoIds.includes(todo.id) 
-            ? { ...todo, completed: true }
-            : todo
-        )
-      )
-      
-      toast.success(`${selectedTodoIds.length} todos completed!`)
-      handleCancelSelection()
-    } catch (error) {
-      console.error('Error bulk completing todos:', error)
-      toast.error('Failed to complete some todos')
-    } finally {
-      setIsUpdating(false)
-    }
-  }
-
-  const handleBulkDelete = async () => {
-    try {
-      setIsUpdating(true)
-      const selectedTodoIds = Array.from(selectedTodos)
-      
-      // Delete all selected todos
-      await Promise.all(
-        selectedTodoIds.map(id => TodoService.deleteTodo(id))
-      )
-      
-      // Update local state
-      setTodos(prev => 
-        prev.filter(todo => !selectedTodoIds.includes(todo.id))
-      )
-      
-      toast.success(`${selectedTodoIds.length} todos deleted!`)
-      handleCancelSelection()
-    } catch (error) {
-      console.error('Error bulk deleting todos:', error)
-      toast.error('Failed to delete some todos')
-    } finally {
-      setIsUpdating(false)
-    }
-  }
-
   // Compute available tags and projects for filtering
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>()
@@ -277,8 +217,8 @@ export default function DashboardClient({ user }: DashboardClientProps) {
     // Apply sorting
     filtered.sort((a, b) => {
       const { field, direction } = sort
-      let aVal: any = a[field]
-      let bVal: any = b[field]
+      let aVal: unknown = a[field]
+      let bVal: unknown = b[field]
 
       // Handle null/undefined values
       if (aVal === null || aVal === undefined) aVal = direction === 'asc' ? '' : 'zzz'
@@ -286,18 +226,20 @@ export default function DashboardClient({ user }: DashboardClientProps) {
 
       // Convert dates to timestamps for comparison
       if (field === 'created_at' || field === 'updated_at' || field === 'due_date' || field === 'work_date') {
-        aVal = new Date(aVal).getTime()
-        bVal = new Date(bVal).getTime()
+        aVal = new Date(aVal as string).getTime()
+        bVal = new Date(bVal as string).getTime()
       }
 
       // Handle priority (1 = high, 3 = low, so reverse for intuitive sorting)
       if (field === 'priority') {
-        aVal = aVal ? 4 - aVal : 999 // Reverse priority and put nulls last
-        bVal = bVal ? 4 - bVal : 999
+        aVal = aVal ? 4 - (aVal as number) : 999 // Reverse priority and put nulls last
+        bVal = bVal ? 4 - (bVal as number) : 999
       }
 
-      if (aVal < bVal) return direction === 'asc' ? -1 : 1
-      if (aVal > bVal) return direction === 'asc' ? 1 : -1
+      const valA = aVal as string | number
+      const valB = bVal as string | number
+      if (valA < valB) return direction === 'asc' ? -1 : 1
+      if (valA > valB) return direction === 'asc' ? 1 : -1
       return 0
     })
 
@@ -307,6 +249,75 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const completedCount = filteredTodos.filter(todo => todo.completed).length
   const totalCount = todos.length
   const filteredCount = filteredTodos.length
+
+  // Bulk action handlers (defined after filteredTodos)
+  const handleSelectAll = useCallback(() => {
+    const allIds = new Set(filteredTodos.map(todo => todo.id))
+    setSelectedTodos(allIds)
+  }, [filteredTodos])
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedTodos(new Set())
+  }, [])
+
+  const handleCancelSelection = useCallback(() => {
+    setSelectedTodos(new Set())
+    setBulkActionMode(false)
+  }, [])
+
+  const handleBulkComplete = useCallback(async () => {
+    try {
+      setIsUpdating(true)
+      const selectedTodoIds = Array.from(selectedTodos)
+      
+      // Update all selected todos to completed
+      await Promise.all(
+        selectedTodoIds.map(id => TodoService.toggleComplete(id, true))
+      )
+      
+      // Update local state
+      setTodos(prev => 
+        prev.map(todo => 
+          selectedTodoIds.includes(todo.id) 
+            ? { ...todo, completed: true }
+            : todo
+        )
+      )
+      
+      toast.success(`${selectedTodoIds.length} todos completed!`)
+      handleCancelSelection()
+    } catch (error) {
+      console.error('Error bulk completing todos:', error)
+      toast.error('Failed to complete some todos')
+    } finally {
+      setIsUpdating(false)
+    }
+  }, [selectedTodos, handleCancelSelection])
+
+  const handleBulkDelete = useCallback(async () => {
+    try {
+      setIsUpdating(true)
+      const selectedTodoIds = Array.from(selectedTodos)
+      
+      // Delete all selected todos
+      await Promise.all(
+        selectedTodoIds.map(id => TodoService.deleteTodo(id))
+      )
+      
+      // Update local state
+      setTodos(prev => 
+        prev.filter(todo => !selectedTodoIds.includes(todo.id))
+      )
+      
+      toast.success(`${selectedTodoIds.length} todos deleted!`)
+      handleCancelSelection()
+    } catch (error) {
+      console.error('Error bulk deleting todos:', error)
+      toast.error('Failed to delete some todos')
+    } finally {
+      setIsUpdating(false)
+    }
+  }, [selectedTodos, handleCancelSelection])
 
   // Keyboard shortcuts
   useEffect(() => {
