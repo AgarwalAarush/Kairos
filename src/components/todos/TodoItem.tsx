@@ -71,7 +71,7 @@ export default function TodoItem({
       document.addEventListener('keydown', handleEscape)
       return () => document.removeEventListener('keydown', handleEscape)
     }
-  }, [isEditing])
+  }, [isEditing, handleCancelEdit])
 
   const handleSaveEdit = async () => {
     if (!editTitle.trim()) return
