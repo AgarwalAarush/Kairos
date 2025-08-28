@@ -39,11 +39,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/auth/signin', req.url))
   }
 
-  // If user is signed in and the current path is /auth/signin or /,
-  // redirect the user to /dashboard
-  if (session && (req.nextUrl.pathname === '/auth/signin' || req.nextUrl.pathname === '/')) {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
-  }
+  // Let root page handle its own auth logic client-side
+  // Middleware should only protect /dashboard route
 
   return supabaseResponse
 }

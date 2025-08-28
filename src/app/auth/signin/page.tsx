@@ -28,9 +28,19 @@ export default function SignInPage() {
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true)
-      await signInWithGoogle()
+      console.log('Starting Google sign-in...')
+      
+      const result = await signInWithGoogle()
+      console.log('Sign-in result:', result)
+      
+      // The redirect should happen automatically via Supabase
+      // If we reach here, something might be wrong
+      console.log('Sign-in completed, waiting for redirect...')
+      
     } catch (error) {
       console.error('Error signing in:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      alert(`Sign-in error: ${errorMessage}`)
       setIsLoading(false)
     }
   }
