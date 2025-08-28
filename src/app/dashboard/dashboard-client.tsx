@@ -129,10 +129,23 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true)
+      console.log('Signing out...')
+      
       await signOut()
+      console.log('Sign out successful, redirecting...')
+      
+      // Force a complete page refresh to clear all state and redirect
+      window.location.href = '/auth/signin'
+      
     } catch (error) {
       console.error('Error signing out:', error)
       setIsSigningOut(false)
+      
+      // Even if signOut fails, redirect to signin page anyway
+      // since user intent is clear - they want to sign out
+      setTimeout(() => {
+        window.location.href = '/auth/signin'
+      }, 1000)
     }
   }
 
