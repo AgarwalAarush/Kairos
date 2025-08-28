@@ -149,8 +149,8 @@ export default function TodoFiltersComponent({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Tasks</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="all">All Tasks</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
           </SelectContent>
         </Select>

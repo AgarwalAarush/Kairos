@@ -6,8 +6,11 @@ import { ArrowLeft, Play, Pause, RotateCcw, ChevronDown, ChevronUp } from 'lucid
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { PomodoroService, PomodoroStatistics } from '@/lib/services/pomodoroService'
+import { TodoService } from '@/lib/services/todoService'
+import { Todo } from '@/types/todo.types'
 import PomodoroStatisticsComponent from '@/components/pomodoro/PomodoroStatistics'
 import MotivationalQuotes from '@/components/pomodoro/MotivationalQuotes'
+import TaskSearch from '@/components/pomodoro/TaskSearch'
 
 type SessionType = 'work' | 'break' | 'longBreak'
 
@@ -25,6 +28,8 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [statistics, setStatistics] = useState<PomodoroStatistics | null>(null)
   const [showStatistics, setShowStatistics] = useState(false)
+  const [todos, setTodos] = useState<Todo[]>([])
+  const [selectedTask, setSelectedTask] = useState<Todo | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const sessionStartTimeRef = useRef<Date | null>(null)
@@ -132,9 +137,20 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
     }
   }, [user.id])
 
+  // Load todos on mount
+  const loadTodos = useCallback(async () => {
+    try {
+      const fetchedTodos = await TodoService.getTodos(user.id)
+      setTodos(fetchedTodos)
+    } catch (error) {
+      console.error('Error loading todos:', error)
+    }
+  }, [user.id])
+
   useEffect(() => {
     loadStatistics()
-  }, [loadStatistics])
+    loadTodos()
+  }, [loadStatistics, loadTodos])
 
   const handleStart = async () => {
     if (isEditing) {
@@ -230,6 +246,14 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
     }
   }
 
+  const handleTaskSelect = (task: Todo) => {
+    setSelectedTask(task)
+  }
+
+  const handleTaskDeselect = () => {
+    setSelectedTask(null)
+  }
+
   const strokeDasharray = 2 * Math.PI * 140 // circumference of circle with radius 140
   const strokeDashoffset = strokeDasharray * (1 - progress / 100)
 
@@ -254,8 +278,8 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
 
       {/* Main Content - Horizontal Layout */}
       <main className="flex-1 p-8">
-        <div className="w-full max-w-none mx-auto px-[20%]">
-          <div className="flex items-center justify-between mb-12">
+        <div className="w-full max-w-none mx-auto px-[15%]">
+          <div className="flex items-start justify-between gap-8 mb-12">
             {/* Left Side - Timer and Dots */}
             <div className="flex flex-col items-center flex-1 justify-center">
               <div className="relative">
@@ -337,36 +361,49 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
               </div>
             </div>
 
-            {/* Right Side - Session Type and Controls */}
-            <div className="flex flex-col items-center justify-center space-y-8 flex-1">
-              {/* Session Type Display */}
-              <div className="text-center">
-                <h2 className="text-5xl font-thin tracking-wide text-foreground mb-4" style={{fontFamily: 'Inter, system-ui, sans-serif'}}>
-                  {getSessionTypeLabel()}
-                </h2>
+            {/* Right Side - Session Type, Controls, and Task Search */}
+            <div className="flex flex-col space-y-8 flex-1">
+              {/* Session Type and Controls */}
+              <div className="flex flex-col items-center justify-center space-y-6">
+                {/* Session Type Display */}
+                <div className="text-center">
+                  <h2 className="text-4xl font-thin tracking-wide text-foreground mb-4" style={{fontFamily: 'Inter, system-ui, sans-serif'}}>
+                    {getSessionTypeLabel()}
+                  </h2>
+                </div>
+
+                {/* Control Buttons */}
+                <div className="flex gap-4">
+                  <Button
+                    onClick={isRunning ? handlePause : handleStart}
+                    size="lg"
+                    className="w-16 h-16 rounded-full"
+                  >
+                    {isRunning ? (
+                      <Pause className="h-6 w-6" />
+                    ) : (
+                      <Play className="h-6 w-6" />
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleReset}
+                    variant="outline"
+                    size="lg"
+                    className="w-16 h-16 rounded-full"
+                  >
+                    <RotateCcw className="h-6 w-6" />
+                  </Button>
+                </div>
               </div>
 
-              {/* Control Buttons */}
-              <div className="flex gap-4">
-                <Button
-                  onClick={isRunning ? handlePause : handleStart}
-                  size="lg"
-                  className="w-16 h-16 rounded-full"
-                >
-                  {isRunning ? (
-                    <Pause className="h-6 w-6" />
-                  ) : (
-                    <Play className="h-6 w-6" />
-                  )}
-                </Button>
-                <Button
-                  onClick={handleReset}
-                  variant="outline"
-                  size="lg"
-                  className="w-16 h-16 rounded-full"
-                >
-                  <RotateCcw className="h-6 w-6" />
-                </Button>
+              {/* Task Search */}
+              <div className="max-w-sm mx-auto w-full">
+                <TaskSearch
+                  todos={todos}
+                  selectedTask={selectedTask}
+                  onTaskSelect={handleTaskSelect}
+                  onTaskDeselect={handleTaskDeselect}
+                />
               </div>
             </div>
           </div>
@@ -377,7 +414,7 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
           </div>
 
           {/* Statistics Toggle and Section */}
-          <div className="border-t pt-6 -mx-[20%] px-[20%]">
+          <div className="border-t pt-6 -mx-[15%] px-[15%]">
             <div className="flex justify-center mb-4">
               <Button
                 variant="ghost"

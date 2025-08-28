@@ -29,7 +29,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const [isUpdating, setIsUpdating] = useState(false)
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [filters, setFilters] = useState<TodoFilters>({})
+  const [filters, setFilters] = useState<TodoFilters>({ completed: false })
   const [sort, setSort] = useState<TodoSort>({ field: 'created_at', direction: 'desc' })
   const [selectedTodos, setSelectedTodos] = useState<Set<string>>(new Set())
   const [bulkActionMode, setBulkActionMode] = useState(false)

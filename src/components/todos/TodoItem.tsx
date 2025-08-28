@@ -16,6 +16,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { 
   Edit2, 
   Trash2, 
@@ -23,7 +30,9 @@ import {
   Save, 
   X, 
   Calendar,
-  Clock
+  Clock,
+  Hash,
+  AtSign
 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -52,6 +61,9 @@ export default function TodoItem({
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(todo.title)
   const [editDescription, setEditDescription] = useState(todo.description || '')
+  const [editTags, setEditTags] = useState<string[]>(todo.tags || [])
+  const [editProject, setEditProject] = useState(todo.project || '')
+  const [editPriority, setEditPriority] = useState<1 | 2 | 3 | undefined>(todo.priority || undefined)
   const [editDueDate, setEditDueDate] = useState<Date | undefined>(
     todo.due_date ? new Date(todo.due_date) : undefined
   )
@@ -62,10 +74,13 @@ export default function TodoItem({
   const handleCancelEdit = useCallback(() => {
     setEditTitle(todo.title)
     setEditDescription(todo.description || '')
+    setEditTags(todo.tags || [])
+    setEditProject(todo.project || '')
+    setEditPriority(todo.priority || undefined)
     setEditDueDate(todo.due_date ? new Date(todo.due_date) : undefined)
     setEditWorkDate(todo.work_date ? new Date(todo.work_date) : undefined)
     setIsEditing(false)
-  }, [todo.title, todo.description, todo.due_date, todo.work_date])
+  }, [todo.title, todo.description, todo.tags, todo.project, todo.priority, todo.due_date, todo.work_date])
 
   // Handle escape key to cancel editing
   useEffect(() => {
@@ -84,20 +99,46 @@ export default function TodoItem({
   const handleSaveEdit = async () => {
     if (!editTitle.trim()) return
 
-    // Parse the new title for smart extraction
+    // Parse the new title for smart extraction, but merge with manually set values
     const parsed = TodoParser.parse(editTitle)
     
+    // Combine parsed tags with manually set tags, removing duplicates
+    const allTags = [...new Set([...editTags, ...parsed.tags])]
+    
     await onEdit(todo.id, {
-      title: parsed.title,
+      title: parsed.title || editTitle, // Use parsed title if available, otherwise original
       description: editDescription.trim() || null,
-      tags: parsed.tags.length > 0 ? parsed.tags : [],
-      project: parsed.project || null,
-      priority: parsed.priority || null,
+      tags: allTags.length > 0 ? allTags : [],
+      project: editProject.trim() || parsed.project || null,
+      priority: editPriority || parsed.priority || null,
       due_date: editDueDate?.toISOString() || null,
       work_date: editWorkDate?.toISOString() || null,
     })
     
     setIsEditing(false)
+  }
+
+  const addTag = (tagName: string) => {
+    const trimmed = tagName.trim()
+    if (trimmed && !editTags.includes(trimmed)) {
+      setEditTags(prev => [...prev, trimmed])
+    }
+  }
+
+  const removeTag = (tagToRemove: string) => {
+    setEditTags(prev => prev.filter(tag => tag !== tagToRemove))
+  }
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      const input = e.currentTarget
+      const tag = input.value.trim().replace(/^#/, '') // Remove # if present
+      if (tag) {
+        addTag(tag)
+        input.value = ''
+      }
+    }
   }
 
 
@@ -123,12 +164,14 @@ export default function TodoItem({
             />
           )}
           
-          <Checkbox
-            checked={todo.completed}
-            onCheckedChange={(checked) => onToggleComplete(todo.id, checked as boolean)}
-            disabled={disabled}
-            className="mt-1"
-          />
+          {!showSelectionCheckbox && (
+            <Checkbox
+              checked={todo.completed}
+              onCheckedChange={(checked) => onToggleComplete(todo.id, checked as boolean)}
+              disabled={disabled}
+              className="mt-1"
+            />
+          )}
           
           <div 
             className="flex-1 min-w-0 cursor-pointer" 
@@ -164,6 +207,64 @@ export default function TodoItem({
                       onDateChange={setEditWorkDate}
                       placeholder="Select work date"
                     />
+                  </div>
+                </div>
+                
+                {/* Tags Section */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    <Hash className="h-4 w-4" />
+                    Tags
+                  </label>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {editTags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(tag)}
+                          className="ml-1 hover:text-red-600"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <Input
+                    placeholder="Add tags (press Enter or comma to add)"
+                    onKeyDown={handleTagInputKeyDown}
+                  />
+                </div>
+                
+                {/* Project and Priority Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-1">
+                      <AtSign className="h-4 w-4" />
+                      Project
+                    </label>
+                    <Input
+                      value={editProject}
+                      onChange={(e) => setEditProject(e.target.value)}
+                      placeholder="Project name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Priority</label>
+                    <Select
+                      value={editPriority?.toString() || 'none'}
+                      onValueChange={(value) => setEditPriority(value === 'none' ? undefined : parseInt(value) as 1 | 2 | 3)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Priority</SelectItem>
+                        <SelectItem value="1">High !</SelectItem>
+                        <SelectItem value="2">Medium !!</SelectItem>
+                        <SelectItem value="3">Low !!!</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="flex gap-2">

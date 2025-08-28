@@ -54,9 +54,9 @@ export default function CreateTodoForm({ onSubmit, isLoading = false }: CreateTo
   const showPreview = text.trim() && (parsedData.tags.length > 0 || parsedData.project || parsedData.priority || parsedData.due_date || parsedData.work_date)
 
   return (
-    <Card className="mb-6 animate-slide-in">
-      <CardContent className="pt-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <Card className="mb-4 animate-slide-in">
+      <CardContent className="pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex gap-2">
             <Input
               value={text}
