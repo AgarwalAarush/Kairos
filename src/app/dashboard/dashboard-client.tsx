@@ -11,15 +11,17 @@ import BulkActionToolbar from '@/components/todos/BulkActionToolbar'
 import SetupInstructions from '@/components/SetupInstructions'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Todo, TodoFormData, TodoFilters, TodoSort } from '@/types/todo.types'
-import { Loader2, RefreshCw, CheckSquare } from 'lucide-react'
+import { Loader2, RefreshCw, CheckSquare, Timer } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 
 interface DashboardClientProps {
   user: User
 }
 
 export default function DashboardClient({ user }: DashboardClientProps) {
+  const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -409,6 +411,14 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                   Retry
                 </Button>
               )}
+              <Button
+                onClick={() => router.push('/pomodoro')}
+                variant="outline"
+                size="sm"
+              >
+                <Timer className="h-4 w-4 mr-2" />
+                Pomodoro
+              </Button>
               <ThemeToggle />
               <Button
                 onClick={handleSignOut}
