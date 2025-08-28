@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Todo } from '@/types/todo.types'
 import { TodoParser } from '@/lib/utils/todoParser'
 import { Button } from '@/components/ui/button'
@@ -59,6 +59,14 @@ export default function TodoItem({
     todo.work_date ? new Date(todo.work_date) : undefined
   )
 
+  const handleCancelEdit = useCallback(() => {
+    setEditTitle(todo.title)
+    setEditDescription(todo.description || '')
+    setEditDueDate(todo.due_date ? new Date(todo.due_date) : undefined)
+    setEditWorkDate(todo.work_date ? new Date(todo.work_date) : undefined)
+    setIsEditing(false)
+  }, [todo.title, todo.description, todo.due_date, todo.work_date])
+
   // Handle escape key to cancel editing
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -92,13 +100,6 @@ export default function TodoItem({
     setIsEditing(false)
   }
 
-  const handleCancelEdit = () => {
-    setEditTitle(todo.title)
-    setEditDescription(todo.description || '')
-    setEditDueDate(todo.due_date ? new Date(todo.due_date) : undefined)
-    setEditWorkDate(todo.work_date ? new Date(todo.work_date) : undefined)
-    setIsEditing(false)
-  }
 
   const getPriorityColor = (priority?: 1 | 2 | 3) => {
     switch (priority) {
