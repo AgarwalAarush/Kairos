@@ -1,0 +1,147 @@
+import { createClient } from '@/lib/supabase/client'
+import { Todo, NewTodo, TodoUpdate, TodoFilters, TodoSort } from '@/types/todo.types'
+
+const supabase = createClient()
+
+export class TodoService {
+  static async getTodos(userId: string, filters?: TodoFilters, sort?: TodoSort): Promise<Todo[]> {
+    let query = supabase
+      .from('todos')
+      .select('*')
+      .eq('user_id', userId)
+
+    // Apply filters
+    if (filters?.completed !== undefined) {
+      query = query.eq('completed', filters.completed)
+    }
+    
+    if (filters?.tags?.length) {
+      query = query.overlaps('tags', filters.tags)
+    }
+    
+    if (filters?.project) {
+      query = query.eq('project', filters.project)
+    }
+    
+    if (filters?.priority) {
+      query = query.eq('priority', filters.priority)
+    }
+    
+    if (filters?.search) {
+      query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
+    }
+
+    // Apply sorting
+    if (sort) {
+      query = query.order(sort.field, { ascending: sort.direction === 'asc' })
+    } else {
+      // Default sort by created_at desc
+      query = query.order('created_at', { ascending: false })
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Error fetching todos:', error)
+      
+      // Handle missing table gracefully
+      if (error.message?.includes('table') && error.message?.includes('todos')) {
+        console.warn('Todos table not found - please run the database schema')
+        return []
+      }
+      
+      throw new Error(error.message || 'Failed to fetch todos')
+    }
+
+    return data || []
+  }
+
+  static async createTodo(todoData: Omit<NewTodo, 'user_id'>, userId: string): Promise<Todo> {
+    const { data, error } = await supabase
+      .from('todos')
+      .insert({
+        ...todoData,
+        user_id: userId,
+        due_date: todoData.due_date instanceof Date ? todoData.due_date.toISOString() : todoData.due_date,
+        work_date: todoData.work_date instanceof Date ? todoData.work_date.toISOString() : todoData.work_date,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error creating todo:', error)
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  static async updateTodo(id: string, updates: TodoUpdate): Promise<Todo> {
+    const { data, error } = await supabase
+      .from('todos')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating todo:', error)
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+
+  static async deleteTodo(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('todos')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error deleting todo:', error)
+      throw new Error(error.message)
+    }
+  }
+
+  static async toggleComplete(id: string, completed: boolean): Promise<Todo> {
+    return this.updateTodo(id, { completed })
+  }
+
+  static async getUniqueTags(userId: string): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('todos')
+      .select('tags')
+      .eq('user_id', userId)
+      .not('tags', 'is', null)
+
+    if (error) {
+      console.error('Error fetching tags:', error)
+      throw new Error(error.message)
+    }
+
+    // Flatten and deduplicate tags
+    const allTags = data?.flatMap(row => row.tags || []) || []
+    return [...new Set(allTags)].sort()
+  }
+
+  static async getUniqueProjects(userId: string): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('todos')
+      .select('project')
+      .eq('user_id', userId)
+      .not('project', 'is', null)
+
+    if (error) {
+      console.error('Error fetching projects:', error)
+      throw new Error(error.message)
+    }
+
+    // Deduplicate projects
+    const projects = data?.map(row => row.project).filter(Boolean) as string[]
+    return [...new Set(projects)].sort()
+  }
+}
