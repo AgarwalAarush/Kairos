@@ -59,7 +59,6 @@ export default function TodoCard({
   onSelectionChange
 }: TodoCardProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [isHovering, setIsHovering] = useState(false)
   const [editTitle, setEditTitle] = useState(todo.title)
   const [editDescription, setEditDescription] = useState(todo.description || '')
   const [editTags, setEditTags] = useState<string[]>(todo.tags || [])
@@ -264,12 +263,11 @@ export default function TodoCard({
     <Card 
       className={`p-3 bg-primary/5 border-primary/20 relative transition-all duration-200 ${
         todo.completed ? 'opacity-60' : 'hover:shadow-md'
-      } ${isSelected ? 'ring-2 ring-primary' : ''}`}
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
+      } ${isSelected ? 'ring-2 ring-primary' : ''} ${!showSelectionCheckbox ? 'cursor-pointer' : ''}`}
+      onDoubleClick={() => !showSelectionCheckbox && setIsEditing(true)}
     >
-      {/* Actions menu in top right - shown on hover */}
-      {isHovering && !showSelectionCheckbox && (
+      {/* Actions menu in top right - always visible */}
+      {!showSelectionCheckbox && (
         <div className="absolute top-2 right-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
