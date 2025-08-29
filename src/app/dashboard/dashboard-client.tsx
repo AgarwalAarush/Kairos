@@ -7,11 +7,14 @@ import { Button } from '@/components/ui/button'
 import CreateTodoForm from '@/components/todos/CreateTodoForm'
 import TodoList from '@/components/todos/TodoList'
 import TodoFiltersComponent from '@/components/todos/TodoFilters'
+import AdvancedFiltersComponent from '@/components/todos/AdvancedFilters'
 import BulkActionToolbar from '@/components/todos/BulkActionToolbar'
 import SetupInstructions from '@/components/SetupInstructions'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Todo, TodoFormData, TodoFilters, TodoSort } from '@/types/todo.types'
-import { Loader2, RefreshCw, CheckSquare, Timer } from 'lucide-react'
+import { Todo, TodoFormData, TodoFilters, TodoSort, AdvancedFilters, ProjectFolder } from '@/types/todo.types'
+import { AdvancedFilteringUtils } from '@/lib/utils/advancedFiltering'
+import { ProjectFolderService } from '@/lib/services/projectFolderService'
+import { Loader2, RefreshCw, CheckSquare, Timer, Calendar } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -30,6 +33,9 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [filters, setFilters] = useState<TodoFilters>({ completed: false })
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({ completed: false })
+  const [useAdvancedFiltering, setUseAdvancedFiltering] = useState(false)
+  const [projectFolders, setProjectFolders] = useState<ProjectFolder[]>([])
   const [sort, setSort] = useState<TodoSort>({ field: 'created_at', direction: 'desc' })
   const [selectedTodos, setSelectedTodos] = useState<Set<string>>(new Set())
   const [bulkActionMode, setBulkActionMode] = useState(false)
@@ -43,6 +49,12 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   useEffect(() => {
     loadTodos()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load project folders
+  useEffect(() => {
+    const folders = ProjectFolderService.getProjectFolders()
+    setProjectFolders(folders)
+  }, [])
 
   const loadTodos = async () => {
     try {
@@ -189,43 +201,49 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const filteredTodos = useMemo(() => {
     let filtered = [...todos]
 
-    // Apply filters
-    if (filters.completed !== undefined) {
-      filtered = filtered.filter(todo => todo.completed === filters.completed)
-    }
+    if (useAdvancedFiltering) {
+      // Use advanced filtering
+      filtered = AdvancedFilteringUtils.applyFilters(filtered, advancedFilters, projectFolders)
+    } else {
+      // Use legacy filtering for backward compatibility
+      // Apply filters
+      if (filters.completed !== undefined) {
+        filtered = filtered.filter(todo => todo.completed === filters.completed)
+      }
 
-    if (filters.tags?.length) {
-      filtered = filtered.filter(todo => 
-        todo.tags?.some(tag => filters.tags!.includes(tag))
-      )
-    }
-
-    if (filters.project) {
-      filtered = filtered.filter(todo => todo.project === filters.project)
-    }
-
-    if (filters.priority) {
-      filtered = filtered.filter(todo => todo.priority === filters.priority)
-    }
-
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      
-      if (searchLower === 'overdue') {
-        // Special case for overdue filter
-        const today = new Date()
-        today.setHours(23, 59, 59, 999) // End of today
-        filtered = filtered.filter(todo =>
-          todo.due_date && 
-          new Date(todo.due_date) < today && 
-          !todo.completed
+      if (filters.tags?.length) {
+        filtered = filtered.filter(todo => 
+          todo.tags?.some(tag => filters.tags!.includes(tag))
         )
-      } else {
-        // Regular text search
-        filtered = filtered.filter(todo =>
-          todo.title.toLowerCase().includes(searchLower) ||
-          todo.description?.toLowerCase().includes(searchLower)
-        )
+      }
+
+      if (filters.project) {
+        filtered = filtered.filter(todo => todo.project === filters.project)
+      }
+
+      if (filters.priority) {
+        filtered = filtered.filter(todo => todo.priority === filters.priority)
+      }
+
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase()
+        
+        if (searchLower === 'overdue') {
+          // Special case for overdue filter
+          const today = new Date()
+          today.setHours(23, 59, 59, 999) // End of today
+          filtered = filtered.filter(todo =>
+            todo.due_date && 
+            new Date(todo.due_date) < today && 
+            !todo.completed
+          )
+        } else {
+          // Regular text search
+          filtered = filtered.filter(todo =>
+            todo.title.toLowerCase().includes(searchLower) ||
+            todo.description?.toLowerCase().includes(searchLower)
+          )
+        }
       }
     }
 
@@ -259,7 +277,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
     })
 
     return filtered
-  }, [todos, filters, sort])
+  }, [todos, filters, advancedFilters, useAdvancedFiltering, projectFolders, sort])
 
   const completedCount = filteredTodos.filter(todo => todo.completed).length
   const totalCount = todos.length
@@ -333,6 +351,25 @@ export default function DashboardClient({ user }: DashboardClientProps) {
       setIsUpdating(false)
     }
   }, [selectedTodos, handleCancelSelection])
+
+  // Advanced filtering handlers
+  const handleToggleAdvancedFiltering = () => {
+    if (useAdvancedFiltering) {
+      // Convert advanced filters back to legacy
+      const legacyFilters = AdvancedFilteringUtils.convertToLegacyFilters(advancedFilters)
+      setFilters(legacyFilters)
+      setUseAdvancedFiltering(false)
+    } else {
+      // Convert legacy filters to advanced
+      const advanced = AdvancedFilteringUtils.convertLegacyFilters(filters)
+      setAdvancedFilters(advanced)
+      setUseAdvancedFiltering(true)
+    }
+  }
+
+  const handleAdvancedFiltersChange = (newFilters: AdvancedFilters) => {
+    setAdvancedFilters(newFilters)
+  }
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -412,6 +449,14 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                 </Button>
               )}
               <Button
+                onClick={() => router.push('/calendar')}
+                variant="outline"
+                size="sm"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Calendar
+              </Button>
+              <Button
                 onClick={() => router.push('/pomodoro')}
                 variant="outline"
                 size="sm"
@@ -446,29 +491,50 @@ export default function DashboardClient({ user }: DashboardClientProps) {
 
             {!isLoading && !hasError && totalCount > 0 && (
               <>
-                <TodoFiltersComponent
-                  filters={filters}
-                  sort={sort}
-                  availableTags={availableTags}
-                  availableProjects={availableProjects}
-                  onFiltersChange={setFilters}
-                  onSortChange={setSort}
-                  totalCount={totalCount}
-                  filteredCount={filteredCount}
-                />
-                
-                {!bulkActionMode && filteredCount > 0 && (
-                  <div className="mb-4">
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-4">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setBulkActionMode(true)}
+                      onClick={handleToggleAdvancedFiltering}
                     >
-                      <CheckSquare className="h-4 w-4 mr-2" />
-                      Select Multiple
+                      {useAdvancedFiltering ? 'Use Simple Filters' : 'Use Advanced Filters'}
                     </Button>
+                    
+                    {!bulkActionMode && filteredCount > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBulkActionMode(true)}
+                      >
+                        <CheckSquare className="h-4 w-4 mr-2" />
+                        Select Multiple
+                      </Button>
+                    )}
                   </div>
-                )}
+
+                  {useAdvancedFiltering ? (
+                    <AdvancedFiltersComponent
+                      filters={advancedFilters}
+                      availableTags={availableTags}
+                      availableProjects={availableProjects}
+                      onFiltersChange={handleAdvancedFiltersChange}
+                      totalCount={totalCount}
+                      filteredCount={filteredCount}
+                    />
+                  ) : (
+                    <TodoFiltersComponent
+                      filters={filters}
+                      sort={sort}
+                      availableTags={availableTags}
+                      availableProjects={availableProjects}
+                      onFiltersChange={setFilters}
+                      onSortChange={setSort}
+                      totalCount={totalCount}
+                      filteredCount={filteredCount}
+                    />
+                  )}
+                </div>
               </>
             )}
           </>

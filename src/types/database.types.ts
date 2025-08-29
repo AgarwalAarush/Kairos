@@ -80,6 +80,41 @@ export interface Database {
           created_at?: string
         }
       }
+      user_integrations: {
+        Row: {
+          id: string
+          user_id: string
+          integration_type: 'google_calendar' | 'outlook' | 'apple_calendar'
+          access_token: string
+          refresh_token: string | null
+          expires_at: string | null
+          scope: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          integration_type: 'google_calendar' | 'outlook' | 'apple_calendar'
+          access_token: string
+          refresh_token?: string | null
+          expires_at?: string | null
+          scope?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          integration_type?: 'google_calendar' | 'outlook' | 'apple_calendar'
+          access_token?: string
+          refresh_token?: string | null
+          expires_at?: string | null
+          scope?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -100,3 +135,7 @@ export type TodoUpdate = Database['public']['Tables']['todos']['Update']
 export type PomodoroSession = Database['public']['Tables']['pomodoro_sessions']['Row']
 export type NewPomodoroSession = Database['public']['Tables']['pomodoro_sessions']['Insert']
 export type PomodoroSessionUpdate = Database['public']['Tables']['pomodoro_sessions']['Update']
+
+export type UserIntegration = Database['public']['Tables']['user_integrations']['Row']
+export type NewUserIntegration = Database['public']['Tables']['user_integrations']['Insert']
+export type UserIntegrationUpdate = Database['public']['Tables']['user_integrations']['Update']
