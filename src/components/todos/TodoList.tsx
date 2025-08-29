@@ -1,7 +1,7 @@
 'use client'
 
 import { Todo } from '@/types/todo.types'
-import TodoItem from './TodoItem'
+import TodoCard from './TodoCard'
 
 interface TodoListProps {
   todos: Todo[]
@@ -35,9 +35,9 @@ export default function TodoList({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
       {todos.map((todo) => (
-        <TodoItem
+        <TodoCard
           key={todo.id}
           todo={todo}
           onToggleComplete={onToggleComplete}

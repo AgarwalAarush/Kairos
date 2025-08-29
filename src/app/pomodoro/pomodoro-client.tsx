@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Play, Pause, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Play, Pause, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Navbar from '@/components/layout/Navbar'
+import { usePomodoro } from '@/contexts/PomodoroContext'
 import type { User } from '@supabase/supabase-js'
 import { PomodoroService, PomodoroStatistics } from '@/lib/services/pomodoroService'
 import { TodoService } from '@/lib/services/todoService'
@@ -12,120 +14,32 @@ import PomodoroStatisticsComponent from '@/components/pomodoro/PomodoroStatistic
 import MotivationalQuotes from '@/components/pomodoro/MotivationalQuotes'
 import TaskSearch from '@/components/pomodoro/TaskSearch'
 
-type SessionType = 'work' | 'break' | 'longBreak'
-
 interface PomodoroClientProps {
   user: User
 }
 
 export default function PomodoroClient({ user }: PomodoroClientProps) {
   const router = useRouter()
-  const [timeLeft, setTimeLeft] = useState(25 * 60) // Total seconds left
-  const [sessionType, setSessionType] = useState<SessionType>('work')
-  const [completedSessions, setCompletedSessions] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const {
+    timeLeft,
+    sessionType,
+    completedSessions,
+    isRunning,
+    selectedTask,
+    startTimer,
+    pauseTimer,
+    resetTimer,
+    setSelectedTask,
+    formatTime,
+    getProgress
+  } = usePomodoro()
+
   const [statistics, setStatistics] = useState<PomodoroStatistics | null>(null)
   const [showStatistics, setShowStatistics] = useState(false)
   const [todos, setTodos] = useState<Todo[]>([])
-  const [selectedTask, setSelectedTask] = useState<Todo | null>(null)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const sessionStartTimeRef = useRef<Date | null>(null)
 
-  // Session durations in minutes
-  const workDuration = 25
-  const breakDuration = 5
-  const longBreakDuration = 15
+  const progress = getProgress()
 
-  const getCurrentSessionDuration = () => {
-    switch (sessionType) {
-      case 'work':
-        return workDuration * 60
-      case 'break':
-        return breakDuration * 60
-      case 'longBreak':
-        return longBreakDuration * 60
-      default:
-        return workDuration * 60
-    }
-  }
-
-  const totalSeconds = getCurrentSessionDuration()
-  const progress = ((totalSeconds - timeLeft) / totalSeconds) * 100
-
-  const formatTime = (totalSeconds: number) => {
-    const mins = Math.floor(totalSeconds / 60)
-    const secs = totalSeconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-
-  const completeSession = useCallback(async () => {
-    setIsRunning(false)
-    
-    // Update current session as completed
-    if (currentSessionId) {
-      try {
-        await PomodoroService.updateSession(currentSessionId, {
-          completed: true,
-          completed_at: new Date().toISOString()
-        })
-        setCurrentSessionId(null)
-      } catch (error) {
-        console.error('Error completing session:', error)
-      }
-    }
-    
-    if (sessionType === 'work') {
-      const newCompletedSessions = completedSessions + 1
-      setCompletedSessions(newCompletedSessions)
-      
-      if (newCompletedSessions % 4 === 0) {
-        // Start long break after 4 work sessions
-        setSessionType('longBreak')
-        setTimeLeft(longBreakDuration * 60)
-      } else {
-        // Start regular break
-        setSessionType('break')
-        setTimeLeft(breakDuration * 60)
-      }
-    } else {
-      // Break finished, start work session
-      setSessionType('work')
-      setTimeLeft(workDuration * 60)
-    }
-
-    // Refresh statistics
-    loadStatistics()
-  }, [sessionType, completedSessions, workDuration, breakDuration, longBreakDuration, currentSessionId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const tick = useCallback(() => {
-    setTimeLeft(prevTime => {
-      if (prevTime <= 1) {
-        // Timer finished
-        completeSession()
-        return 0
-      }
-      return prevTime - 1
-    })
-  }, [completeSession])
-
-  useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(tick, 1000)
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [isRunning, tick])
 
   // Load statistics on mount
   const loadStatistics = useCallback(async () => {
@@ -152,86 +66,33 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
     loadTodos()
   }, [loadStatistics, loadTodos])
 
+  // Listen for session completion events to refresh statistics
+  useEffect(() => {
+    const handleSessionComplete = () => {
+      loadStatistics()
+    }
+
+    window.addEventListener('pomodoroSessionComplete', handleSessionComplete)
+    
+    return () => {
+      window.removeEventListener('pomodoroSessionComplete', handleSessionComplete)
+    }
+  }, [loadStatistics])
+
   const handleStart = async () => {
-    if (isEditing) {
-      setIsEditing(false)
-    }
-    
-    // Create new session when starting
-    try {
-      const session = await PomodoroService.createSession({
-        session_type: sessionType,
-        duration_minutes: Math.floor(getCurrentSessionDuration() / 60),
-        started_at: new Date().toISOString()
-      }, user.id)
-      
-      if (session) {
-        setCurrentSessionId(session.id)
-      }
-      sessionStartTimeRef.current = new Date()
-    } catch (error) {
-      console.error('Error creating session:', error)
-    }
-    
-    setIsRunning(true)
+    await startTimer(user.id)
+    loadStatistics()
   }
 
   const handlePause = async () => {
-    setIsRunning(false)
-    
-    // Mark session as interrupted if it's paused before completion
-    if (currentSessionId) {
-      try {
-        await PomodoroService.updateSession(currentSessionId, {
-          interrupted: true
-        })
-      } catch (error) {
-        console.error('Error marking session as interrupted:', error)
-      }
-    }
+    await pauseTimer()
   }
 
   const handleReset = async () => {
-    setIsRunning(false)
-    setTimeLeft(getCurrentSessionDuration())
-    
-    // Mark current session as interrupted if it exists
-    if (currentSessionId) {
-      try {
-        await PomodoroService.updateSession(currentSessionId, {
-          interrupted: true
-        })
-        setCurrentSessionId(null)
-        loadStatistics()
-      } catch (error) {
-        console.error('Error resetting session:', error)
-      }
-    }
+    await resetTimer()
+    loadStatistics()
   }
 
-  const handleEditTime = () => {
-    if (!isRunning && sessionType === 'work') {
-      setIsEditing(true)
-      setTimeout(() => {
-        inputRef.current?.focus()
-        inputRef.current?.select()
-      }, 0)
-    }
-  }
-
-  const handleTimeSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsEditing(false)
-    setTimeLeft(workDuration * 60)
-  }
-
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value)
-    if (!isNaN(value) && value > 0 && value <= 999) {
-      // Update workDuration would require making it state, for now just update timeLeft
-      setTimeLeft(value * 60)
-    }
-  }
 
   const getSessionTypeLabel = () => {
     switch (sessionType) {
@@ -259,22 +120,11 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={() => router.push('/dashboard')}
-              variant="outline"
-              size="sm"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <h1 className="text-xl font-semibold">Pomodoro Timer</h1>
-          </div>
-        </div>
-      </header>
+      <Navbar 
+        user={user} 
+        title="Pomodoro Timer"
+        subtitle="Focus with the Pomodoro Technique"
+      />
 
       {/* Main Content - Horizontal Layout */}
       <main className="flex-1 p-8">
@@ -317,32 +167,9 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
 
                 {/* Timer Display */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  {isEditing ? (
-                    <form onSubmit={handleTimeSubmit} className="text-center">
-                      <input
-                        ref={inputRef}
-                        type="number"
-                        value={Math.floor(timeLeft / 60)}
-                        onChange={handleTimeChange}
-                        className="text-6xl font-mono font-light bg-transparent text-center border-none outline-none w-32"
-                        min="1"
-                        max="999"
-                      />
-                      <div className="text-sm text-muted-foreground mt-2">
-                        Press Enter to confirm
-                      </div>
-                    </form>
-                  ) : (
-                    <button
-                      onClick={handleEditTime}
-                      disabled={isRunning || sessionType !== 'work'}
-                      className={`text-6xl font-mono font-light ${
-                        !isRunning && sessionType === 'work' ? 'hover:text-primary cursor-pointer' : 'cursor-default'
-                      } transition-colors`}
-                    >
-                      {formatTime(timeLeft)}
-                    </button>
-                  )}
+                  <div className="text-6xl font-mono font-light">
+                    {formatTime(timeLeft)}
+                  </div>
                 </div>
               </div>
 

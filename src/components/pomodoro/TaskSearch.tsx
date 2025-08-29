@@ -17,7 +17,9 @@ export default function TaskSearch({ todos, selectedTask, onTaskSelect, onTaskDe
   const [searchQuery, setSearchQuery] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
   const searchRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Filter uncompleted todos based on search query
   const filteredTodos = todos.filter(todo => 
@@ -33,6 +35,7 @@ export default function TaskSearch({ todos, selectedTask, onTaskSelect, onTaskDe
     function handleClickOutside(event: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsOpen(false)
+        setSelectedIndex(-1)
       }
     }
 
@@ -44,11 +47,40 @@ export default function TaskSearch({ todos, selectedTask, onTaskSelect, onTaskDe
     onTaskSelect(task)
     setSearchQuery('')
     setIsOpen(false)
+    setSelectedIndex(-1)
   }
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
     setIsOpen(value.length > 0)
+    setSelectedIndex(-1) // Reset selection when query changes
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isOpen || filteredTodos.length === 0) return
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setSelectedIndex(prev => (prev + 1) % filteredTodos.length)
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setSelectedIndex(prev => prev <= 0 ? filteredTodos.length - 1 : prev - 1)
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (selectedIndex >= 0 && selectedIndex < filteredTodos.length) {
+          handleTaskSelect(filteredTodos[selectedIndex])
+        }
+        break
+      case 'Escape':
+        e.preventDefault()
+        setIsOpen(false)
+        setSelectedIndex(-1)
+        inputRef.current?.blur()
+        break
+    }
   }
 
   return (
@@ -103,11 +135,13 @@ export default function TaskSearch({ todos, selectedTask, onTaskSelect, onTaskDe
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            ref={inputRef}
             type="text"
             placeholder="Search tasks to work on..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             onFocus={() => searchQuery.length > 0 && setIsOpen(true)}
+            onKeyDown={handleKeyDown}
             className="pl-10 pr-4"
           />
         </div>
@@ -117,11 +151,14 @@ export default function TaskSearch({ todos, selectedTask, onTaskSelect, onTaskDe
           <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
             {filteredTodos.length > 0 ? (
               <div className="py-1">
-                {filteredTodos.map((todo) => (
+                {filteredTodos.map((todo, index) => (
                   <button
                     key={todo.id}
                     onClick={() => handleTaskSelect(todo)}
-                    className="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+                    onMouseEnter={() => setSelectedIndex(index)}
+                    className={`w-full text-left px-3 py-2 transition-colors ${
+                      selectedIndex === index ? 'bg-muted' : 'hover:bg-muted'
+                    }`}
                   >
                     <div className="font-medium text-sm">{todo.title}</div>
                     {todo.description && (

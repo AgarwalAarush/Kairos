@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/theme-toggle'
-import { signOut } from '@/lib/auth'
+import Navbar from '@/components/layout/Navbar'
+import { TodoService } from '@/lib/services/todoService'
+import { Todo } from '@/types/todo.types'
 import { 
   Calendar, 
   CalendarCurrentDate,
@@ -26,11 +27,11 @@ interface CalendarClientProps {
   user: User
 }
 
-export default function CalendarClient({ user: _user }: CalendarClientProps) {
+export default function CalendarClient({ user }: CalendarClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [isSigningOut, setIsSigningOut] = useState(false)
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -69,6 +70,7 @@ export default function CalendarClient({ user: _user }: CalendarClientProps) {
     }
 
     loadCalendarEvents()
+    loadTodos()
   }, [searchParams])
 
   const loadCalendarEvents = async () => {
@@ -101,66 +103,54 @@ export default function CalendarClient({ user: _user }: CalendarClientProps) {
     }
   }
 
+  const loadTodos = async () => {
+    try {
+      const fetchedTodos = await TodoService.getTodos(user.id)
+      setTodos(fetchedTodos)
+    } catch (error) {
+      console.error('Error loading todos:', error)
+    }
+  }
+
   const handleConnectGoogle = () => {
     window.location.href = '/api/auth/google'
   }
 
-  const handleSignOut = async () => {
-    try {
-      setIsSigningOut(true)
-      await signOut()
-      window.location.href = '/auth/signin'
-    } catch (error) {
-      console.error('Error signing out:', error)
-      setIsSigningOut(false)
-      setTimeout(() => {
-        window.location.href = '/auth/signin'
-      }, 1000)
-    }
-  }
+  // Convert todos with due dates to calendar events
+  const todoEvents = useMemo(() => {
+    return todos
+      .filter(todo => todo.due_date && !todo.completed) // Only show incomplete todos with due dates
+      .map(todo => {
+        const dueDate = new Date(todo.due_date!)
+        // Set the event for the whole day
+        const startDate = new Date(dueDate)
+        startDate.setHours(9, 0, 0, 0) // 9 AM
+        const endDate = new Date(dueDate)
+        endDate.setHours(10, 0, 0, 0) // 10 AM (1 hour duration)
+
+        return {
+          id: `todo-${todo.id}`,
+          start: startDate,
+          end: endDate,
+          title: todo.title,
+          color: todo.priority === 1 ? 'pink' : todo.priority === 2 ? 'purple' : 'blue'
+        } as CalendarEvent
+      })
+  }, [todos])
+
+  // Combine Google Calendar events and todo events
+  const allEvents = useMemo(() => {
+    return [...events, ...todoEvents]
+  }, [events, todoEvents])
+
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">Calendar</h1>
-              <p className="text-muted-foreground">
-                View your Google Calendar events
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => router.push('/dashboard')}
-                variant="outline"
-                size="sm"
-              >
-                <CheckSquare className="h-4 w-4 mr-2" />
-                Dashboard
-              </Button>
-              <Button
-                onClick={() => router.push('/pomodoro')}
-                variant="outline"
-                size="sm"
-              >
-                <Timer className="h-4 w-4 mr-2" />
-                Pomodoro
-              </Button>
-              <ThemeToggle />
-              <Button
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-                variant="outline"
-                size="sm"
-              >
-                {isSigningOut ? 'Signing out...' : 'Sign out'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Navbar 
+        user={user} 
+        title="Calendar"
+        subtitle="View your schedule and todos"
+      />
 
       {/* Calendar Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
@@ -190,7 +180,7 @@ export default function CalendarClient({ user: _user }: CalendarClientProps) {
             </div>
           </div>
         ) : (
-          <Calendar events={events}>
+          <Calendar events={allEvents}>
             <div className="mb-6">
               {/* Calendar Controls */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
@@ -205,7 +195,10 @@ export default function CalendarClient({ user: _user }: CalendarClientProps) {
                     Today
                   </CalendarTodayTrigger>
                   <Button 
-                    onClick={loadCalendarEvents}
+                    onClick={() => {
+                      loadCalendarEvents()
+                      loadTodos()
+                    }}
                     variant="outline"
                     size="sm"
                   >

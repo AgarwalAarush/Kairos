@@ -10,7 +10,7 @@ import TodoFiltersComponent from '@/components/todos/TodoFilters'
 import AdvancedFiltersComponent from '@/components/todos/AdvancedFilters'
 import BulkActionToolbar from '@/components/todos/BulkActionToolbar'
 import SetupInstructions from '@/components/SetupInstructions'
-import { ThemeToggle } from '@/components/theme-toggle'
+import Navbar from '@/components/layout/Navbar'
 import { Todo, TodoFormData, TodoFilters, TodoSort, AdvancedFilters, ProjectFolder } from '@/types/todo.types'
 import { AdvancedFilteringUtils } from '@/lib/utils/advancedFiltering'
 import { ProjectFolderService } from '@/lib/services/projectFolderService'
@@ -25,7 +25,6 @@ interface DashboardClientProps {
 
 export default function DashboardClient({ user }: DashboardClientProps) {
   const router = useRouter()
-  const [isSigningOut, setIsSigningOut] = useState(false)
   const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
@@ -140,28 +139,6 @@ export default function DashboardClient({ user }: DashboardClientProps) {
     }
   }
 
-  const handleSignOut = async () => {
-    try {
-      setIsSigningOut(true)
-      console.log('Signing out...')
-      
-      await signOut()
-      console.log('Sign out successful, redirecting...')
-      
-      // Force a complete page refresh to clear all state and redirect
-      window.location.href = '/auth/signin'
-      
-    } catch (error) {
-      console.error('Error signing out:', error)
-      setIsSigningOut(false)
-      
-      // Even if signOut fails, redirect to signin page anyway
-      // since user intent is clear - they want to sign out
-      setTimeout(() => {
-        window.location.href = '/auth/signin'
-      }, 1000)
-    }
-  }
 
   // Bulk operations
   const handleSelectionChange = (todoId: string, selected: boolean) => {
@@ -420,68 +397,33 @@ export default function DashboardClient({ user }: DashboardClientProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">
-                Hey {user.user_metadata?.name?.split(' ')[0] || 'there'}!
-              </h1>
-              <p className="text-muted-foreground">
-                {totalCount > 0 ? (
-                  `${completedCount} of ${filteredCount} todos completed`
-                ) : (
-                  "Let's get things done!"
-                )}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {hasError && (
-                <Button
-                  onClick={loadTodos}
-                  disabled={isLoading}
-                  variant="outline"
-                  size="sm"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-                  Retry
-                </Button>
-              )}
-              <Button
-                onClick={() => router.push('/calendar')}
-                variant="outline"
-                size="sm"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Calendar
-              </Button>
-              <Button
-                onClick={() => router.push('/pomodoro')}
-                variant="outline"
-                size="sm"
-              >
-                <Timer className="h-4 w-4 mr-2" />
-                Pomodoro
-              </Button>
-              <ThemeToggle />
-              <Button
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-                variant="outline"
-                size="sm"
-              >
-                {isSigningOut ? 'Signing out...' : 'Sign out'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Navbar 
+        user={user} 
+        title={`Hey ${user.user_metadata?.name?.split(' ')[0] || 'there'}!`}
+        subtitle={totalCount > 0 ? (
+          `${completedCount} of ${filteredCount} todos completed`
+        ) : (
+          "Let's get things done!"
+        )}
+      />
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-6">
         {hasError ? (
-          <SetupInstructions />
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <Button
+                onClick={loadTodos}
+                disabled={isLoading}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+                Retry Loading
+              </Button>
+            </div>
+            <SetupInstructions />
+          </div>
         ) : (
           <>
             <CreateTodoForm 
