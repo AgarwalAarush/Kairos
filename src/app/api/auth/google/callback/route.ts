@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleOAuthService } from '@/lib/services/googleOAuthService'
 import { createClient } from '@/lib/supabase/server'
-import { NewUserIntegration } from '@/types/database.types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,18 +24,20 @@ export async function GET(request: NextRequest) {
     // Store tokens in Supabase for the user
     const supabase = await createClient()
     
-    const integrationData: NewUserIntegration = {
+    const integrationData = {
       user_id: state,
       integration_type: 'google_calendar' as const,
       access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-      updated_at: new Date().toISOString()
+      refresh_token: tokens.refresh_token ?? null,
+      expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString()
     }
 
-    const { error: dbError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: dbError } = await (supabase as any)
       .from('user_integrations')
-      .upsert(integrationData)
+      .upsert([integrationData], {
+        onConflict: 'user_id,integration_type'
+      })
 
     if (dbError) {
       console.error('Error storing Google tokens:', dbError)

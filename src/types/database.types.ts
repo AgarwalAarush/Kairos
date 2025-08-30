@@ -13,6 +13,7 @@ export interface Database {
           due_date: string | null
           work_date: string | null
           completed: boolean
+          completed_at: string | null
           created_at: string
           updated_at: string
         }
@@ -27,6 +28,7 @@ export interface Database {
           due_date?: string | null
           work_date?: string | null
           completed?: boolean
+          completed_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -41,6 +43,7 @@ export interface Database {
           due_date?: string | null
           work_date?: string | null
           completed?: boolean
+          completed_at?: string | null
           created_at?: string
           updated_at?: string
         }

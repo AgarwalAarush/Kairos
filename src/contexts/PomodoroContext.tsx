@@ -419,7 +419,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('pomodoroSessionComplete'))
     }, 100)
-  }, [state.currentSessionId, state.sessionType, state.completedSessions, getCurrentSessionDuration])
+  }, [state.currentSessionId, state.sessionType, state.completedSessions, getCurrentSessionDuration, state.customDurations])
 
   const setSelectedTask = useCallback((task: unknown | null) => {
     setState(prevState => ({

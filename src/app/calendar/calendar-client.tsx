@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import Navbar from '@/components/layout/Navbar'
 import { TodoService } from '@/lib/services/todoService'
@@ -19,7 +19,7 @@ import {
   CalendarYearView,
   CalendarEvent 
 } from '@/components/Calendar'
-import { ChevronLeft, ChevronRight, Timer, CheckSquare, Loader2, Link2, AlertCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Link2, AlertCircle } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 
@@ -28,13 +28,52 @@ interface CalendarClientProps {
 }
 
 export default function CalendarClient({ user }: CalendarClientProps) {
-  const router = useRouter()
+  
   const searchParams = useSearchParams()
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const loadCalendarEvents = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      const response = await fetch('/api/calendar/events')
+      const data = await response.json()
+      
+      if (!response.ok) {
+        if (data.needsAuth) {
+          setIsConnected(false)
+          setEvents([])
+        } else {
+          throw new Error(data.error || 'Failed to load calendar events')
+        }
+        return
+      }
+
+      setIsConnected(true)
+      setEvents(data.events || [])
+    } catch (error) {
+      console.error('Error loading calendar events:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load calendar events')
+      setIsConnected(false)
+      setEvents([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const loadTodos = useCallback(async () => {
+    try {
+      const fetchedTodos = await TodoService.getTodos(user.id)
+      setTodos(fetchedTodos)
+    } catch (error) {
+      console.error('Error loading todos:', error)
+    }
+  }, [user.id])
 
   useEffect(() => {
     // Check for OAuth callback params
@@ -71,46 +110,7 @@ export default function CalendarClient({ user }: CalendarClientProps) {
 
     loadCalendarEvents()
     loadTodos()
-  }, [searchParams])
-
-  const loadCalendarEvents = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      
-      const response = await fetch('/api/calendar/events')
-      const data = await response.json()
-      
-      if (!response.ok) {
-        if (data.needsAuth) {
-          setIsConnected(false)
-          setEvents([])
-        } else {
-          throw new Error(data.error || 'Failed to load calendar events')
-        }
-        return
-      }
-
-      setIsConnected(true)
-      setEvents(data.events || [])
-    } catch (error) {
-      console.error('Error loading calendar events:', error)
-      setError(error instanceof Error ? error.message : 'Failed to load calendar events')
-      setIsConnected(false)
-      setEvents([])
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const loadTodos = async () => {
-    try {
-      const fetchedTodos = await TodoService.getTodos(user.id)
-      setTodos(fetchedTodos)
-    } catch (error) {
-      console.error('Error loading todos:', error)
-    }
-  }
+  }, [searchParams, loadCalendarEvents, loadTodos])
 
   const handleConnectGoogle = () => {
     window.location.href = '/api/auth/google'

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Play, Pause, RotateCcw, ChevronDown, ChevronUp, Plus, Minus, SkipForward } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import Navbar from '@/components/layout/Navbar'
 import { usePomodoro } from '@/contexts/PomodoroContext'
 import type { User } from '@supabase/supabase-js'
@@ -19,7 +18,7 @@ interface PomodoroClientProps {
 }
 
 export default function PomodoroClient({ user }: PomodoroClientProps) {
-  const router = useRouter()
+  
   const {
     timeLeft,
     sessionType,
@@ -282,7 +281,7 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
               <div className="max-w-sm mx-auto w-full">
                 <TaskSearch
                   todos={todos}
-                  selectedTask={selectedTask}
+                  selectedTask={selectedTask as Todo | null}
                   onTaskSelect={handleTaskSelect}
                   onTaskDeselect={handleTaskDeselect}
                 />

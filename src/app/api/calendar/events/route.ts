@@ -13,8 +13,9 @@ export async function GET(_request: NextRequest) {
     }
     
     // Get stored Google tokens
-    // @ts-expect-error - Table will be created after running the migration
-    const { data: integration, error: integrationError } = await supabase
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: integration, error: integrationError } = await (supabase as any)
       .from('user_integrations')
       .select('*')
       .eq('user_id', user.id)
@@ -43,8 +44,9 @@ export async function GET(_request: NextRequest) {
         const refreshedTokens = await GoogleOAuthService.refreshAccessToken(integration.refresh_token)
         
         // Update stored tokens
-            // @ts-expect-error - Table will be created after running the migration
-        await supabase
+            
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
           .from('user_integrations')
           .update({
             access_token: refreshedTokens.access_token,

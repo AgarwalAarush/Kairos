@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { signOut } from '@/lib/auth'
+
 import { TodoService } from '@/lib/services/todoService'
 import { Button } from '@/components/ui/button'
 import CreateTodoForm from '@/components/todos/CreateTodoForm'
@@ -14,17 +14,16 @@ import Navbar from '@/components/layout/Navbar'
 import { Todo, TodoFormData, TodoFilters, TodoSort, AdvancedFilters, ProjectFolder } from '@/types/todo.types'
 import { AdvancedFilteringUtils } from '@/lib/utils/advancedFiltering'
 import { ProjectFolderService } from '@/lib/services/projectFolderService'
-import { Loader2, RefreshCw, CheckSquare, Timer, Calendar } from 'lucide-react'
+import { Loader2, RefreshCw, CheckSquare } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
 
 interface DashboardClientProps {
   user: User
 }
 
 export default function DashboardClient({ user }: DashboardClientProps) {
-  const router = useRouter()
+  
   const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
@@ -96,7 +95,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const handleToggleComplete = async (id: string, completed: boolean) => {
     try {
       setIsUpdating(true)
-      const updatedTodo = await TodoService.toggleComplete(id, completed)
+      const updatedTodo = await TodoService.toggleComplete(id, completed, user.id)
       setTodos(prev => prev.map(todo => 
         todo.id === id ? updatedTodo : todo
       ))
@@ -112,7 +111,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const handleDeleteTodo = async (id: string) => {
     try {
       setIsUpdating(true)
-      await TodoService.deleteTodo(id)
+      await TodoService.deleteTodo(id, user.id)
       setTodos(prev => prev.filter(todo => todo.id !== id))
       toast.success('Todo deleted successfully')
     } catch (error) {
@@ -126,7 +125,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const handleEditTodo = async (id: string, updates: Partial<Todo>) => {
     try {
       setIsUpdating(true)
-      const updatedTodo = await TodoService.updateTodo(id, updates)
+      const updatedTodo = await TodoService.updateTodo(id, updates, user.id)
       setTodos(prev => prev.map(todo => 
         todo.id === id ? updatedTodo : todo
       ))
@@ -282,7 +281,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
       
       // Update all selected todos to completed
       await Promise.all(
-        selectedTodoIds.map(id => TodoService.toggleComplete(id, true))
+        selectedTodoIds.map(id => TodoService.toggleComplete(id, true, user.id))
       )
       
       // Update local state
@@ -302,7 +301,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
     } finally {
       setIsUpdating(false)
     }
-  }, [selectedTodos, handleCancelSelection])
+  }, [selectedTodos, handleCancelSelection, user.id])
 
   const handleBulkDelete = useCallback(async () => {
     try {
@@ -311,7 +310,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
       
       // Delete all selected todos
       await Promise.all(
-        selectedTodoIds.map(id => TodoService.deleteTodo(id))
+        selectedTodoIds.map(id => TodoService.deleteTodo(id, user.id))
       )
       
       // Update local state
@@ -327,7 +326,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
     } finally {
       setIsUpdating(false)
     }
-  }, [selectedTodos, handleCancelSelection])
+  }, [selectedTodos, handleCancelSelection, user.id])
 
   // Advanced filtering handlers
   const handleToggleAdvancedFiltering = () => {

@@ -78,7 +78,7 @@ export class TodoService {
     return data
   }
 
-  static async updateTodo(id: string, updates: TodoUpdate): Promise<Todo> {
+  static async updateTodo(id: string, updates: TodoUpdate, userId: string): Promise<Todo> {
     const { data, error } = await (supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from('todos') as any)
@@ -87,31 +87,35 @@ export class TodoService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .single()
 
     if (error) {
       console.error('Error updating todo:', error)
-      throw new Error(error.message)
+      throw new Error(error.message || 'Failed to update todo')
     }
 
     return data
   }
 
-  static async deleteTodo(id: string): Promise<void> {
+  static async deleteTodo(id: string, userId: string): Promise<void> {
     const { error } = await supabase
       .from('todos')
       .delete()
       .eq('id', id)
+      .eq('user_id', userId)
 
     if (error) {
       console.error('Error deleting todo:', error)
-      throw new Error(error.message)
+      throw new Error(error.message || 'Failed to delete todo')
     }
   }
 
-  static async toggleComplete(id: string, completed: boolean): Promise<Todo> {
-    return this.updateTodo(id, { completed })
+  static async toggleComplete(id: string, completed: boolean, userId: string): Promise<Todo> {
+    // Note: completed_at functionality disabled until database migration is run
+    // To enable completed_at tracking, run: supabase/migration_add_completed_at.sql
+    return this.updateTodo(id, { completed }, userId)
   }
 
   static async getUniqueTags(userId: string): Promise<string[]> {

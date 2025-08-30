@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { signOut } from '@/lib/auth'
 import { usePomodoro } from '@/contexts/PomodoroContext'
-import { CheckSquare, Calendar, Timer } from 'lucide-react'
+import { CheckSquare, Calendar, Timer, BarChart3, Home } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
 
@@ -20,7 +20,7 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [isSigningOut, setIsSigningOut] = useState(false)
-  const { isRunning, timeLeft, sessionType, formatTime, completeSession } = usePomodoro()
+  const { isRunning, timeLeft, formatTime, completeSession } = usePomodoro()
 
   // Handle session completion
   useEffect(() => {
@@ -55,9 +55,19 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
 
   const navigationButtons = [
     {
+      href: '/',
+      icon: Home,
+      label: 'Home'
+    },
+    {
       href: '/dashboard',
       icon: CheckSquare,
       label: 'Dashboard'
+    },
+    {
+      href: '/pomodoro',
+      icon: Timer,
+      label: 'Pomodoro'
     },
     {
       href: '/calendar',
@@ -65,9 +75,9 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
       label: 'Calendar'
     },
     {
-      href: '/pomodoro',
-      icon: Timer,
-      label: 'Pomodoro'
+      href: '/analytics',
+      icon: BarChart3,
+      label: 'Analytics'
     }
   ]
 
