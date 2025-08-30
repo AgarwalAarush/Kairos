@@ -25,10 +25,8 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
   // Handle session completion
   useEffect(() => {
     if (timeLeft <= 0 && isRunning) {
-      completeSession(user.id).then(() => {
-        // Trigger a custom event to notify other components to refresh statistics
-        window.dispatchEvent(new CustomEvent('pomodoroSessionComplete'))
-      })
+      completeSession(user.id)
+      // Statistics refresh is now handled within the completeSession function
     }
   }, [timeLeft, isRunning, completeSession, user.id])
 

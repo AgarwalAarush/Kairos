@@ -13,7 +13,12 @@ interface PomodoroState {
   currentSessionId: string | null
   sessionStartTime: Date | null
   sessionDuration: number
-  selectedTask: any | null
+  selectedTask: unknown | null
+  customDurations: {
+    work: number
+    break: number
+    longBreak: number
+  }
 }
 
 interface PomodoroContextType extends PomodoroState {
@@ -21,9 +26,13 @@ interface PomodoroContextType extends PomodoroState {
   pauseTimer: () => Promise<void>
   resetTimer: () => Promise<void>
   completeSession: (userId: string) => Promise<void>
-  setSelectedTask: (task: any | null) => void
+  skipBreak: (userId: string) => Promise<void>
+  setSelectedTask: (task: unknown | null) => void
   formatTime: (seconds: number) => string
   getProgress: () => number
+  refreshStatistics: () => void
+  updateDuration: (sessionType: SessionType, minutes: number) => void
+  adjustCurrentDuration: (minutes: number) => void
 }
 
 const STORAGE_KEY = 'pomodoro-state'
@@ -41,7 +50,12 @@ const defaultState: PomodoroState = {
   currentSessionId: null,
   sessionStartTime: null,
   sessionDuration: WORK_DURATION * 60,
-  selectedTask: null
+  selectedTask: null,
+  customDurations: {
+    work: WORK_DURATION,
+    break: BREAK_DURATION,
+    longBreak: LONG_BREAK_DURATION
+  }
 }
 
 const PomodoroContext = createContext<PomodoroContextType | undefined>(undefined)
@@ -61,6 +75,21 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
           if (parsed.sessionStartTime) {
             parsed.sessionStartTime = new Date(parsed.sessionStartTime)
           }
+          // Ensure customDurations exists and has all required properties
+          if (!parsed.customDurations) {
+            parsed.customDurations = {
+              work: WORK_DURATION,
+              break: BREAK_DURATION,
+              longBreak: LONG_BREAK_DURATION
+            }
+          } else {
+            // Fill in missing duration properties with defaults
+            parsed.customDurations = {
+              work: parsed.customDurations.work || WORK_DURATION,
+              break: parsed.customDurations.break || BREAK_DURATION,
+              longBreak: parsed.customDurations.longBreak || LONG_BREAK_DURATION
+            }
+          }
           setState(parsed)
         } catch (error) {
           console.error('Error loading pomodoro state:', error)
@@ -76,18 +105,37 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state])
 
-  const getCurrentSessionDuration = useCallback((sessionType: SessionType) => {
+  const getCurrentSessionDuration = useCallback((sessionType: SessionType, customDurations = state.customDurations) => {
+    // Defensive programming: ensure customDurations exists and has valid values
+    const safeDurations = {
+      work: customDurations?.work || WORK_DURATION,
+      break: customDurations?.break || BREAK_DURATION,
+      longBreak: customDurations?.longBreak || LONG_BREAK_DURATION
+    }
+    
+    let duration: number
     switch (sessionType) {
       case 'work':
-        return WORK_DURATION * 60
+        duration = safeDurations.work * 60
+        break
       case 'break':
-        return BREAK_DURATION * 60
+        duration = safeDurations.break * 60
+        break
       case 'longBreak':
-        return LONG_BREAK_DURATION * 60
+        duration = safeDurations.longBreak * 60
+        break
       default:
-        return WORK_DURATION * 60
+        duration = safeDurations.work * 60
     }
-  }, [])
+    
+    // Additional safety check: ensure duration is a valid number
+    if (isNaN(duration) || duration <= 0) {
+      console.warn(`Invalid duration calculated for ${sessionType}:`, duration, 'using default')
+      duration = WORK_DURATION * 60
+    }
+    
+    return duration
+  }, [state.customDurations])
 
   const updateTimer = useCallback(() => {
     setState(currentState => {
@@ -242,7 +290,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     const playCompletionSound = () => {
       try {
         // Create a simple beep sound using Web Audio API
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+        const audioContext = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)()
         const oscillator = audioContext.createOscillator()
         const gainNode = audioContext.createGain()
         
@@ -265,20 +313,20 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Show desktop notification
-    const showNotification = () => {
+    const showNotification = (sessionType: SessionType) => {
       if ('Notification' in window && Notification.permission === 'granted') {
         let title = ''
         let body = ''
         
-        if (state.sessionType === 'work') {
+        if (sessionType === 'work') {
           title = 'Work Session Complete! 🎉'
-          body = 'Great job! Time for a well-deserved break.'
-        } else if (state.sessionType === 'break') {
+          body = 'Starting break session automatically...'
+        } else if (sessionType === 'break') {
           title = 'Break Complete! 💪'
-          body = 'Ready to get back to work?'
-        } else if (state.sessionType === 'longBreak') {
+          body = 'Starting work session automatically...'
+        } else if (sessionType === 'longBreak') {
           title = 'Long Break Complete! 🚀'
-          body = 'You\'ve completed 4 work sessions. Time to start fresh!'
+          body = 'Starting new work session automatically...'
         }
 
         new Notification(title, {
@@ -291,52 +339,89 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 
     // Play sound and show notifications
     playCompletionSound()
+    showNotification(state.sessionType)
     
-    // Request notification permission if needed, then show notification
-    if ('Notification' in window) {
-      if (Notification.permission === 'granted') {
-        showNotification()
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            showNotification()
-          }
-        })
-      }
+    // Request notification permission if needed
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
     }
 
-    setState(prevState => {
-      let newSessionType: SessionType
-      let newCompletedSessions = prevState.completedSessions
+    // Determine next session type and update completed sessions
+    let newSessionType: SessionType
+    let newCompletedSessions = state.completedSessions
 
-      if (prevState.sessionType === 'work') {
-        newCompletedSessions = prevState.completedSessions + 1
-        
-        if (newCompletedSessions % 4 === 0) {
-          newSessionType = 'longBreak'
-        } else {
-          newSessionType = 'break'
-        }
+    if (state.sessionType === 'work') {
+      newCompletedSessions = state.completedSessions + 1
+      
+      if (newCompletedSessions % 4 === 0) {
+        newSessionType = 'longBreak'
       } else {
-        newSessionType = 'work'
+        newSessionType = 'break'
       }
+    } else {
+      newSessionType = 'work'
+    }
 
-      const duration = getCurrentSessionDuration(newSessionType)
+    const duration = getCurrentSessionDuration(newSessionType, state.customDurations)
+    const now = new Date()
 
-      return {
+    try {
+      // Create new session for the next phase
+      const session = await PomodoroService.createSession({
+        session_type: newSessionType,
+        duration_minutes: Math.floor(duration / 60),
+        started_at: now.toISOString()
+      }, userId)
+
+      // Debug logging
+      console.log('Completing session transition:', {
+        oldSessionType: state.sessionType,
+        newSessionType,
+        duration,
+        customDurations: state.customDurations
+      })
+
+      setState(prevState => ({
         ...prevState,
-        isRunning: false,
+        isRunning: true, // Automatically start the next session
         sessionType: newSessionType,
         timeLeft: duration,
         sessionDuration: duration,
         completedSessions: newCompletedSessions,
-        sessionStartTime: null,
-        currentSessionId: null
-      }
-    })
-  }, [state.currentSessionId, state.sessionType, getCurrentSessionDuration])
+        sessionStartTime: now,
+        currentSessionId: session?.id || null
+      }))
+    } catch (error) {
+      console.error('Error creating next session:', error)
+      
+      // Debug logging for fallback case too
+      console.log('Fallback session transition:', {
+        oldSessionType: state.sessionType,
+        newSessionType,
+        duration,
+        customDurations: state.customDurations
+      })
 
-  const setSelectedTask = useCallback((task: any | null) => {
+      // Fallback without session tracking
+      setState(prevState => ({
+        ...prevState,
+        isRunning: true, // Still auto-start even if session creation fails
+        sessionType: newSessionType,
+        timeLeft: duration,
+        sessionDuration: duration,
+        completedSessions: newCompletedSessions,
+        sessionStartTime: now,
+        currentSessionId: null
+      }))
+    }
+
+    // Trigger statistics refresh after state update
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('pomodoroSessionComplete'))
+    }, 100)
+  }, [state.currentSessionId, state.sessionType, state.completedSessions, getCurrentSessionDuration])
+
+  const setSelectedTask = useCallback((task: unknown | null) => {
     setState(prevState => ({
       ...prevState,
       selectedTask: task
@@ -344,6 +429,12 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const formatTime = useCallback((seconds: number) => {
+    // Handle NaN or invalid input
+    if (isNaN(seconds) || seconds < 0) {
+      console.warn('formatTime received invalid input:', seconds)
+      return '00:00'
+    }
+    
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
@@ -352,6 +443,94 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const getProgress = useCallback(() => {
     return ((state.sessionDuration - state.timeLeft) / state.sessionDuration) * 100
   }, [state.sessionDuration, state.timeLeft])
+
+  const refreshStatistics = useCallback(() => {
+    // Trigger a custom event to notify components to refresh statistics
+    window.dispatchEvent(new CustomEvent('pomodoroSessionComplete'))
+  }, [])
+
+  const updateDuration = useCallback((sessionType: SessionType, minutes: number) => {
+    setState(prevState => ({
+      ...prevState,
+      customDurations: {
+        ...prevState.customDurations,
+        [sessionType]: Math.max(1, Math.min(60, minutes)) // Constrain between 1-60 minutes
+      }
+    }))
+  }, [])
+
+  const adjustCurrentDuration = useCallback((minutes: number) => {
+    if (state.isRunning) return // Don't allow adjustments while running
+
+    const newDuration = Math.max(60, Math.min(3600, state.sessionDuration + (minutes * 60))) // 1-60 minutes in seconds
+    const newTimeLeft = state.timeLeft + (minutes * 60)
+
+    setState(prevState => ({
+      ...prevState,
+      sessionDuration: newDuration,
+      timeLeft: Math.max(0, newTimeLeft),
+      customDurations: {
+        ...prevState.customDurations,
+        [prevState.sessionType]: Math.floor(newDuration / 60)
+      }
+    }))
+  }, [state.isRunning, state.sessionDuration, state.timeLeft])
+
+  const skipBreak = useCallback(async (userId: string) => {
+    // Only allow skipping during break sessions
+    if (state.sessionType === 'work') return
+
+    // Mark current break session as interrupted if it exists
+    if (state.currentSessionId) {
+      try {
+        await PomodoroService.updateSession(state.currentSessionId, {
+          interrupted: true
+        })
+      } catch (error) {
+        console.error('Error marking break session as skipped:', error)
+      }
+    }
+
+    // Transition directly to work session
+    const workDuration = getCurrentSessionDuration('work', state.customDurations)
+    const now = new Date()
+
+    try {
+      // Create new work session
+      const session = await PomodoroService.createSession({
+        session_type: 'work',
+        duration_minutes: Math.floor(workDuration / 60),
+        started_at: now.toISOString()
+      }, userId)
+
+      setState(prevState => ({
+        ...prevState,
+        isRunning: true,
+        sessionType: 'work',
+        timeLeft: workDuration,
+        sessionDuration: workDuration,
+        sessionStartTime: now,
+        currentSessionId: session?.id || null
+      }))
+    } catch (error) {
+      console.error('Error creating work session after skip:', error)
+      // Fallback without session tracking
+      setState(prevState => ({
+        ...prevState,
+        isRunning: true,
+        sessionType: 'work',
+        timeLeft: workDuration,
+        sessionDuration: workDuration,
+        sessionStartTime: now,
+        currentSessionId: null
+      }))
+    }
+
+    // Trigger statistics refresh after state update
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('pomodoroSessionComplete'))
+    }, 100)
+  }, [state.sessionType, state.currentSessionId, getCurrentSessionDuration, state.customDurations])
 
   // Check if session should complete
   useEffect(() => {
@@ -366,9 +545,13 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     pauseTimer,
     resetTimer,
     completeSession,
+    skipBreak,
     setSelectedTask,
     formatTime,
-    getProgress
+    getProgress,
+    refreshStatistics,
+    updateDuration,
+    adjustCurrentDuration
   }
 
   return (

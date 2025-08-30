@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Play, Pause, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Play, Pause, RotateCcw, ChevronDown, ChevronUp, Plus, Minus, SkipForward } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/layout/Navbar'
 import { usePomodoro } from '@/contexts/PomodoroContext'
@@ -31,7 +31,10 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
     resetTimer,
     setSelectedTask,
     formatTime,
-    getProgress
+    getProgress,
+    completeSession,
+    adjustCurrentDuration,
+    skipBreak
   } = usePomodoro()
 
   const [statistics, setStatistics] = useState<PomodoroStatistics | null>(null)
@@ -65,6 +68,21 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
     loadStatistics()
     loadTodos()
   }, [loadStatistics, loadTodos])
+
+  // Handle session completion when timer reaches zero
+  useEffect(() => {
+    if (timeLeft <= 0 && !isRunning) {
+      // Check if we just finished a session (timeLeft is 0 but we're not manually stopped)
+      const handleCompletion = async () => {
+        await completeSession(user.id)
+        loadStatistics() // Refresh statistics after completion
+      }
+      
+      // Add a small delay to ensure state has settled
+      const timer = setTimeout(handleCompletion, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [timeLeft, isRunning, completeSession, user.id, loadStatistics])
 
   // Listen for session completion events to refresh statistics
   useEffect(() => {
@@ -113,6 +131,11 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
 
   const handleTaskDeselect = () => {
     setSelectedTask(null)
+  }
+
+  const handleSkipBreak = async () => {
+    await skipBreak(user.id)
+    loadStatistics()
   }
 
   const strokeDasharray = 2 * Math.PI * 140 // circumference of circle with radius 140
@@ -170,6 +193,27 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
                   <div className="text-6xl font-mono font-light">
                     {formatTime(timeLeft)}
                   </div>
+                  {!isRunning && (
+                    <div className="flex items-center gap-2 mt-2 opacity-60 hover:opacity-100 transition-opacity">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-8 h-8 p-0"
+                        onClick={() => adjustCurrentDuration(-1)}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground">adjust</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-8 h-8 p-0"
+                        onClick={() => adjustCurrentDuration(1)}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -220,6 +264,17 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
                   >
                     <RotateCcw className="h-6 w-6" />
                   </Button>
+                  {(sessionType === 'break' || sessionType === 'longBreak') && (
+                    <Button
+                      onClick={handleSkipBreak}
+                      variant="secondary"
+                      size="lg"
+                      className="w-16 h-16 rounded-full"
+                      title="Skip break and start work session"
+                    >
+                      <SkipForward className="h-6 w-6" />
+                    </Button>
+                  )}
                 </div>
               </div>
 

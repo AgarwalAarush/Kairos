@@ -34,7 +34,6 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString()
     }
 
-    // @ts-expect-error - Table will be created after running the migration
     const { error: dbError } = await supabase
       .from('user_integrations')
       .upsert(integrationData)
