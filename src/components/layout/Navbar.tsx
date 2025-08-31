@@ -8,19 +8,23 @@ import { signOut } from '@/lib/auth'
 import { usePomodoro } from '@/contexts/PomodoroContext'
 import { CheckSquare, Timer, BarChart3, Home, Menu, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
+import { useTheme } from 'next-themes'
 import type { User } from '@supabase/supabase-js'
 
 interface NavbarProps {
   user: User
-  title: string
+  title?: string
   subtitle?: string
 }
 
-export default function Navbar({ user, title, subtitle }: NavbarProps) {
+export default function Navbar({ user }: NavbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
+  const { theme } = useTheme()
   const { isRunning, timeLeft, formatTime, completeSession } = usePomodoro()
 
   // Handle session completion
@@ -30,6 +34,16 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
       // Statistics refresh is now handled within the completeSession function
     }
   }, [timeLeft, isRunning, completeSession, user.id])
+
+  // Handle scroll detection
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const handleSignOut = async () => {
     try {
@@ -78,16 +92,27 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
   ]
 
   return (
-    <header className="border-b bg-card">
-      <div className="max-w-7xl mx-auto px-4 py-4">
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out bg-background/95 backdrop-blur-sm ${
+      isScrolled 
+        ? 'mx-16 mt-4 rounded-full shadow-lg border border-border/50' 
+        : 'border-b border-border'
+    }`}>
+      <div className={`mx-auto py-4 transition-all duration-300 ${
+        isScrolled ? 'max-w-7xl px-4' : 'max-w-7xl px-4'
+      }`}>
         <div className="flex items-center justify-between">
-          {/* Left side - Title and hamburger menu */}
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">{title}</h1>
-              {subtitle && (
-                <p className="text-muted-foreground hidden sm:block">{subtitle}</p>
-              )}
+          {/* Left side - Logo and Kairos title */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 relative">
+                <Image
+                  src={theme === 'dark' ? '/kairos-dark.jpeg' : '/kairos-light.jpeg'}
+                  alt="Kairos"
+                  fill
+                  className="object-contain rounded-md"
+                />
+              </div>
+              <h1 className="text-xl font-bold">kairos</h1>
             </div>
           </div>
           
