@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const dailyStats = await AnalyticsService.getDailyStats(user.id, days)
+    const dailyStats = await AnalyticsService.getDailyStats(supabase, user.id, days)
     
     return NextResponse.json(dailyStats)
   } catch (error) {

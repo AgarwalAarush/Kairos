@@ -1,6 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
-
-const supabase = createClient()
+import { SupabaseClient } from '@supabase/supabase-js'
 
 export interface DailyStats {
   date: string
@@ -44,7 +42,7 @@ export interface OverallStats {
 }
 
 export class AnalyticsService {
-  static async getOverallStats(userId: string): Promise<OverallStats> {
+  static async getOverallStats(supabase: SupabaseClient, userId: string): Promise<OverallStats> {
     // Get overall task counts
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: allTasks, error: tasksError } = await (supabase as any)
@@ -138,7 +136,7 @@ export class AnalyticsService {
     }
   }
 
-  static async getDailyStats(userId: string, days: number = 30): Promise<DailyStats[]> {
+  static async getDailyStats(supabase: SupabaseClient, userId: string, days: number = 30): Promise<DailyStats[]> {
     const endDate = new Date()
     const startDate = new Date()
     startDate.setDate(endDate.getDate() - days)
@@ -195,7 +193,7 @@ export class AnalyticsService {
     })).sort((a, b) => a.date.localeCompare(b.date))
   }
 
-  static async getProjectStats(userId: string): Promise<ProjectStats[]> {
+  static async getProjectStats(supabase: SupabaseClient, userId: string): Promise<ProjectStats[]> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tasks, error } = await (supabase as any)
       .from('todos')
@@ -241,7 +239,7 @@ export class AnalyticsService {
     })).sort((a, b) => b.total - a.total)
   }
 
-  static async getTagStats(userId: string): Promise<TagStats[]> {
+  static async getTagStats(supabase: SupabaseClient, userId: string): Promise<TagStats[]> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tasks, error } = await (supabase as any)
       .from('todos')
@@ -279,7 +277,7 @@ export class AnalyticsService {
     })).sort((a, b) => b.total - a.total)
   }
 
-  static async getWeeklyStats(userId: string, weeks: number = 12): Promise<WeeklyStats[]> {
+  static async getWeeklyStats(supabase: SupabaseClient, userId: string, weeks: number = 12): Promise<WeeklyStats[]> {
     const endDate = new Date()
     const startDate = new Date()
     startDate.setDate(endDate.getDate() - (weeks * 7))

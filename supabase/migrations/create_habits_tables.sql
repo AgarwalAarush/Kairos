@@ -1,32 +1,3 @@
-# Database Migration Instructions
-
-## Issue
-The `habits` and `habit_completions` tables are missing from the database, causing errors when using the habits functionality.
-
-## Solution
-Run the following migration to create the missing tables:
-
-### Option 1: Using Supabase CLI
-```bash
-# If you have Supabase CLI installed
-supabase db push
-```
-
-### Option 2: Manual SQL Execution
-1. Go to your Supabase Dashboard
-2. Navigate to SQL Editor
-3. Copy and run the SQL from: `supabase/migrations/create_habits_tables.sql`
-
-The migration will create:
-- `habits` table for storing user habits
-- `habit_completions` table for tracking daily habit completions
-- Proper indexes and Row Level Security policies
-- Foreign key relationships and constraints
-
-### Option 3: Copy and paste SQL directly
-Run this SQL in your Supabase SQL Editor:
-
-```sql
 -- Migration: Create habits and habit_completions tables
 -- This creates the tables needed for habit tracking functionality
 
@@ -100,7 +71,3 @@ CREATE TRIGGER update_habits_updated_at
     BEFORE UPDATE ON habits
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
-```
-
-## After Running Migration
-Once the migration is complete, the habits functionality will work properly.

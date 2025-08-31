@@ -6,16 +6,16 @@ import Navbar from '@/components/layout/Navbar'
 import StatsCards from '@/components/analytics/StatsCards'
 import DailyChart from '@/components/analytics/DailyChart'
 import ProjectStats from '@/components/analytics/ProjectStats'
-import TagStats from '@/components/analytics/TagStats'
 import WeeklyChart from '@/components/analytics/WeeklyChart'
-import GoalStats from '@/components/analytics/GoalStats'
+import DailyGoalsStats from '@/components/analytics/DailyGoalsStats'
+import HabitsStats from '@/components/analytics/HabitsStats'
 import { Button } from '@/components/ui/button'
 import { RefreshCw, Calendar, BarChart3, TrendingUp } from 'lucide-react'
 import { 
   OverallStats, 
   DailyStats, 
   ProjectStats as ProjectStatsType, 
-  TagStats as TagStatsType, 
+ 
   WeeklyStats 
 } from '@/lib/services/analyticsService'
 import { toast } from 'sonner'
@@ -29,7 +29,6 @@ export default function AnalyticsClient({ user }: AnalyticsClientProps) {
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([])
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats[]>([])
   const [projectStats, setProjectStats] = useState<ProjectStatsType[]>([])
-  const [tagStats, setTagStats] = useState<TagStatsType[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -37,33 +36,29 @@ export default function AnalyticsClient({ user }: AnalyticsClientProps) {
     try {
       setIsLoading(true)
       
-      const [overviewRes, dailyRes, weeklyRes, projectRes, tagRes] = await Promise.all([
+      const [overviewRes, dailyRes, weeklyRes, projectRes] = await Promise.all([
         fetch('/api/analytics/overview'),
         fetch('/api/analytics/daily?days=30'),
         fetch('/api/analytics/weekly?weeks=12'),
-        fetch('/api/analytics/projects'),
-        fetch('/api/analytics/tags')
+        fetch('/api/analytics/projects')
       ])
 
       if (!overviewRes.ok) throw new Error('Failed to load overview stats')
       if (!dailyRes.ok) throw new Error('Failed to load daily stats')
       if (!weeklyRes.ok) throw new Error('Failed to load weekly stats')
       if (!projectRes.ok) throw new Error('Failed to load project stats')
-      if (!tagRes.ok) throw new Error('Failed to load tag stats')
 
-      const [overview, daily, weekly, projects, tags] = await Promise.all([
+      const [overview, daily, weekly, projects] = await Promise.all([
         overviewRes.json(),
         dailyRes.json(),
         weeklyRes.json(),
-        projectRes.json(),
-        tagRes.json()
+        projectRes.json()
       ])
 
       setOverallStats(overview)
       setDailyStats(daily)
       setWeeklyStats(weekly)
       setProjectStats(projects)
-      setTagStats(tags)
     } catch (error) {
       console.error('Error loading analytics:', error)
       toast.error('Failed to load analytics data')
@@ -93,12 +88,12 @@ export default function AnalyticsClient({ user }: AnalyticsClientProps) {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div className="flex items-center gap-3">
-            <BarChart3 className="h-8 w-8 text-primary" />
+            <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
             <div>
-              <h1 className="text-2xl font-bold">Productivity Analytics</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl sm:text-2xl font-bold">Productivity Analytics</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">
                 Insights into your task completion patterns and productivity trends
               </p>
             </div>
@@ -108,9 +103,10 @@ export default function AnalyticsClient({ user }: AnalyticsClientProps) {
             disabled={refreshing}
             variant="outline"
             size="sm"
+            className="self-start sm:self-auto"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh Data
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''} sm:mr-2`} />
+            <span className="hidden sm:inline">Refresh Data</span>
           </Button>
         </div>
 
@@ -126,11 +122,11 @@ export default function AnalyticsClient({ user }: AnalyticsClientProps) {
             {/* Overview Stats Cards */}
             {overallStats && <StatsCards stats={overallStats} />}
 
-            {/* Goal Analytics Section */}
-            <div className="bg-card rounded-lg border p-6">
-              <h3 className="text-lg font-semibold mb-4">Goal Tracking Analytics</h3>
-              <GoalStats userId={user.id} />
-            </div>
+            {/* Daily Goals Analytics Section */}
+            <DailyGoalsStats userId={user.id} />
+
+            {/* Habits Analytics Section */}
+            <HabitsStats userId={user.id} />
 
             {/* Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -160,13 +156,6 @@ export default function AnalyticsClient({ user }: AnalyticsClientProps) {
                 <ProjectStats data={projectStats} />
               </div>
 
-              {/* Tag Analysis */}
-              {tagStats.length > 0 && (
-                <div className="lg:col-span-2 bg-card rounded-lg border p-6">
-                  <h3 className="text-lg font-semibold mb-4">Tag Analysis</h3>
-                  <TagStats data={tagStats} />
-                </div>
-              )}
             </div>
           </div>
         )}

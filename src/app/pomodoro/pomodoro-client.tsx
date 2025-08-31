@@ -148,19 +148,19 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
         subtitle="Focus with the Pomodoro Technique"
       />
 
-      {/* Main Content - Horizontal Layout */}
-      <main className="flex-1 p-8">
-        <div className="w-full max-w-none mx-auto px-[15%]">
-          <div className="flex items-start justify-between gap-8 mb-12">
-            {/* Left Side - Timer and Dots */}
+      {/* Main Content - Responsive Layout */}
+      <main className="flex-1 p-4 md:p-8">
+        <div className="w-full max-w-none mx-auto md:px-[15%]">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 mb-12">
+            {/* Timer Section */}
             <div className="flex flex-col items-center flex-1 justify-center">
               <div className="relative">
-                {/* SVG Circle Progress */}
+                {/* SVG Circle Progress - Responsive Size */}
                 <svg
-                  width="360"
-                  height="360"
+                  width="280"
+                  height="280"
                   viewBox="0 0 360 360"
-                  className="transform -rotate-90"
+                  className="transform -rotate-90 md:w-80 md:h-80 lg:w-[360px] lg:h-[360px]"
                 >
                   {/* Background circle */}
                   <circle
@@ -187,9 +187,9 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
                   />
                 </svg>
 
-                {/* Timer Display */}
+                {/* Timer Display - Responsive Text Size */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="text-6xl font-mono font-light">
+                  <div className="text-4xl md:text-5xl lg:text-6xl font-mono font-light">
                     {formatTime(timeLeft)}
                   </div>
                   {!isRunning && (
@@ -231,54 +231,54 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
               </div>
             </div>
 
-            {/* Right Side - Session Type, Controls, and Task Search */}
-            <div className="flex flex-col space-y-8 flex-1">
+            {/* Controls and Task Section - Responsive Layout */}
+            <div className="flex flex-col space-y-6 lg:space-y-8 flex-1">
               {/* Session Type and Controls */}
-              <div className="flex flex-col items-center justify-center space-y-6">
+              <div className="flex flex-col items-center justify-center space-y-4 lg:space-y-6">
                 {/* Session Type Display */}
                 <div className="text-center">
-                  <h2 className="text-4xl font-thin tracking-wide text-foreground mb-4" style={{fontFamily: 'Inter, system-ui, sans-serif'}}>
+                  <h2 className="text-2xl md:text-3xl lg:text-4xl font-thin tracking-wide text-foreground mb-2 lg:mb-4" style={{fontFamily: 'Inter, system-ui, sans-serif'}}>
                     {getSessionTypeLabel()}
                   </h2>
                 </div>
 
-                {/* Control Buttons */}
-                <div className="flex gap-4">
+                {/* Control Buttons - Responsive Size */}
+                <div className="flex gap-3 md:gap-4">
                   <Button
                     onClick={isRunning ? handlePause : handleStart}
                     size="lg"
-                    className="w-16 h-16 rounded-full"
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-full"
                   >
                     {isRunning ? (
-                      <Pause className="h-6 w-6" />
+                      <Pause className="h-5 w-5 md:h-6 md:w-6" />
                     ) : (
-                      <Play className="h-6 w-6" />
+                      <Play className="h-5 w-5 md:h-6 md:w-6" />
                     )}
                   </Button>
                   <Button
                     onClick={handleReset}
                     variant="outline"
                     size="lg"
-                    className="w-16 h-16 rounded-full"
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-full"
                   >
-                    <RotateCcw className="h-6 w-6" />
+                    <RotateCcw className="h-5 w-5 md:h-6 md:w-6" />
                   </Button>
                   {(sessionType === 'break' || sessionType === 'longBreak') && (
                     <Button
                       onClick={handleSkipBreak}
                       variant="secondary"
                       size="lg"
-                      className="w-16 h-16 rounded-full"
+                      className="w-12 h-12 md:w-16 md:h-16 rounded-full"
                       title="Skip break and start work session"
                     >
-                      <SkipForward className="h-6 w-6" />
+                      <SkipForward className="h-5 w-5 md:h-6 md:w-6" />
                     </Button>
                   )}
                 </div>
               </div>
 
-              {/* Task Search */}
-              <div className="max-w-sm mx-auto w-full">
+              {/* Task Search - Mobile Responsive */}
+              <div className="w-full max-w-sm lg:max-w-md mx-auto">
                 <TaskSearch
                   todos={todos}
                   selectedTask={selectedTask as Todo | null}
@@ -290,12 +290,12 @@ export default function PomodoroClient({ user }: PomodoroClientProps) {
           </div>
 
           {/* Motivational Quotes Section */}
-          <div className="mt-8">
+          <div className="mt-6 lg:mt-8">
             <MotivationalQuotes />
           </div>
 
           {/* Statistics Toggle and Section */}
-          <div className="border-t pt-6 -mx-[15%] px-[15%]">
+          <div className="border-t pt-4 lg:pt-6 -mx-4 px-4 md:-mx-[15%] md:px-[15%]">
             <div className="flex justify-center mb-4">
               <Button
                 variant="ghost"

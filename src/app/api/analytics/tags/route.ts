@@ -13,7 +13,7 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const tagStats = await AnalyticsService.getTagStats(user.id)
+    const tagStats = await AnalyticsService.getTagStats(supabase, user.id)
     
     return NextResponse.json(tagStats)
   } catch (error) {

@@ -7,10 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { CheckCircle, Circle, Target, TrendingUp, Plus, Check, X, Calendar } from 'lucide-react'
+import { CheckCircle, Circle, Target, TrendingUp, Plus, Check, X, Calendar, Zap, Sparkles, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import quotes from '@/data/motivationalQuotes.json'
 import { createClient } from '@/lib/supabase/client'
+import { DailyGoalsService } from '@/lib/services/dailyGoalsService'
+import HabitTracker from '@/components/habits/HabitTracker'
+import { DatePicker } from '@/components/ui/date-picker'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 
@@ -45,7 +48,7 @@ export default function HomePage({ user }: HomePageProps) {
   const [newLongTermGoal, setNewLongTermGoal] = useState({
     title: '',
     description: '',
-    targetDate: ''
+    targetDate: undefined as Date | undefined
   })
   const [showNewLongTermForm, setShowNewLongTermForm] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -63,16 +66,8 @@ export default function HomePage({ user }: HomePageProps) {
 
   const loadGoals = useCallback(async () => {
     try {
-      // Load today's daily goals
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: dailyData, error: dailyError } = await (supabase as any)
-        .from('daily_goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .order('created_at', { ascending: false })
-
-      if (dailyError) throw dailyError
+      // Load today's daily goals (without auto-generation)
+      const dailyData = await DailyGoalsService.getDailyGoals(user.id, new Date())
       setDailyGoals(dailyData || [])
 
       // Load active long-term goals
@@ -102,23 +97,13 @@ export default function HomePage({ user }: HomePageProps) {
     if (!newDailyGoal.trim()) return
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from('daily_goals')
-        .insert({
-          user_id: user.id,
-          goal: newDailyGoal.trim(),
-          date: today,
-          completed: false
-        })
-        .select()
-        .single()
-
-      if (error) throw error
+      const data = await DailyGoalsService.addCustomGoal(user.id, newDailyGoal.trim())
       
-      setDailyGoals([data, ...dailyGoals])
-      setNewDailyGoal('')
-      toast.success('Daily goal added!')
+      if (data) {
+        setDailyGoals([data, ...dailyGoals])
+        setNewDailyGoal('')
+        toast.success('Daily goal added!')
+      }
     } catch (error) {
       console.error('Error adding daily goal:', error)
       toast.error('Failed to add daily goal')
@@ -127,13 +112,7 @@ export default function HomePage({ user }: HomePageProps) {
 
   const toggleDailyGoal = async (goalId: string, completed: boolean) => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from('daily_goals')
-        .update({ completed })
-        .eq('id', goalId)
-
-      if (error) throw error
+      await DailyGoalsService.toggleGoalCompletion(goalId, completed)
 
       setDailyGoals(dailyGoals.map(goal => 
         goal.id === goalId ? { ...goal, completed } : goal
@@ -148,6 +127,17 @@ export default function HomePage({ user }: HomePageProps) {
     }
   }
 
+  const deleteDailyGoal = async (goalId: string) => {
+    try {
+      await DailyGoalsService.deleteGoal(goalId)
+      setDailyGoals(dailyGoals.filter(goal => goal.id !== goalId))
+      toast.success('Goal deleted')
+    } catch (error) {
+      console.error('Error deleting daily goal:', error?.message || 'Unknown error', error)
+      toast.error('Failed to delete goal')
+    }
+  }
+
   const addLongTermGoal = async () => {
     if (!newLongTermGoal.title.trim() || !newLongTermGoal.targetDate) return
 
@@ -159,7 +149,7 @@ export default function HomePage({ user }: HomePageProps) {
           user_id: user.id,
           title: newLongTermGoal.title.trim(),
           description: newLongTermGoal.description.trim(),
-          target_date: newLongTermGoal.targetDate,
+          target_date: format(newLongTermGoal.targetDate, 'yyyy-MM-dd'),
           progress: 0,
           completed: false
         })
@@ -169,7 +159,7 @@ export default function HomePage({ user }: HomePageProps) {
       if (error) throw error
       
       setLongTermGoals([data, ...longTermGoals])
-      setNewLongTermGoal({ title: '', description: '', targetDate: '' })
+      setNewLongTermGoal({ title: '', description: '', targetDate: undefined })
       setShowNewLongTermForm(false)
       toast.success('Long-term goal added!')
     } catch (error) {
@@ -202,6 +192,28 @@ export default function HomePage({ user }: HomePageProps) {
     }
   }
 
+  const deleteLongTermGoal = async (goalId: string) => {
+    if (!confirm('Are you sure you want to delete this long-term goal? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('long_term_goals')
+        .delete()
+        .eq('id', goalId)
+
+      if (error) throw error
+
+      setLongTermGoals(longTermGoals.filter(goal => goal.id !== goalId))
+      toast.success('Long-term goal deleted')
+    } catch (error) {
+      console.error('Error deleting long-term goal:', error)
+      toast.error('Failed to delete goal')
+    }
+  }
+
   if (loading) {
     return (
       <main className="max-w-4xl mx-auto px-4 py-6">
@@ -218,16 +230,16 @@ export default function HomePage({ user }: HomePageProps) {
   return (
     <main className="max-w-4xl mx-auto px-4 py-6">
       {/* Welcome Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold mb-2">Welcome back! 👋</h1>
-        <p className="text-xl text-muted-foreground mb-6">
+      <div className="text-center mb-6 lg:mb-8">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">Welcome back! 👋</h1>
+        <p className="text-lg sm:text-xl text-muted-foreground mb-4 lg:mb-6">
           {format(new Date(), 'EEEE, MMMM do, yyyy')}
         </p>
       </div>
 
       {/* Daily Quote - Pomodoro Style */}
-      <div className="text-center max-w-2xl mx-auto py-8 mb-8">
-        <blockquote className="text-lg text-muted-foreground italic leading-relaxed mb-3">
+      <div className="text-center max-w-2xl mx-auto py-6 lg:py-8 mb-6 lg:mb-8">
+        <blockquote className="text-base lg:text-lg text-muted-foreground italic leading-relaxed mb-3">
           &ldquo;{dailyQuote.text}&rdquo;
         </blockquote>
         <cite className="text-sm font-medium text-muted-foreground/80">
@@ -236,7 +248,7 @@ export default function HomePage({ user }: HomePageProps) {
       </div>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
           {/* Daily Goals Section */}
           <div className="space-y-6">
             <Card>
@@ -244,7 +256,10 @@ export default function HomePage({ user }: HomePageProps) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-5 w-5 text-primary" />
-                    <CardTitle>Today&apos;s Goals</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      Today&apos;s Goals
+                      <Sparkles className="h-4 w-4 text-amber-500" title="AI-powered daily goals" />
+                    </CardTitle>
                   </div>
                   <Badge variant={dailyCompletionRate === 100 ? "default" : "secondary"}>
                     {completedDailyGoals}/{dailyGoals.length} completed
@@ -271,14 +286,14 @@ export default function HomePage({ user }: HomePageProps) {
                 {/* Daily goals list */}
                 <div className="space-y-2">
                   {dailyGoals.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">
+                    <p className="text-muted-foreground text-center py-4 text-base md:text-sm">
                       No goals set for today. Add one above to get started!
                     </p>
                   ) : (
                     dailyGoals.map((goal) => (
                       <div
                         key={goal.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border ${
+                        className={`group flex items-center gap-3 p-3 rounded-lg border ${
                           goal.completed 
                             ? 'bg-muted/50 border-primary/20' 
                             : 'bg-card hover:bg-muted/30'
@@ -296,9 +311,17 @@ export default function HomePage({ user }: HomePageProps) {
                             <Circle className="h-5 w-5 text-muted-foreground" />
                           )}
                         </Button>
-                        <span className={`text-base md:text-sm ${goal.completed ? 'line-through text-muted-foreground' : ''}`}>
+                        <span className={`flex-1 text-base md:text-sm ${goal.completed ? 'line-through text-muted-foreground' : ''}`}>
                           {goal.goal}
                         </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-0 h-6 w-6 opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+                          onClick={() => deleteDailyGoal(goal.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     ))
                   )}
@@ -342,11 +365,10 @@ export default function HomePage({ user }: HomePageProps) {
                         onChange={(e) => setNewLongTermGoal({ ...newLongTermGoal, description: e.target.value })}
                         rows={2}
                       />
-                      <Input
-                        type="date"
-                        value={newLongTermGoal.targetDate}
-                        onChange={(e) => setNewLongTermGoal({ ...newLongTermGoal, targetDate: e.target.value })}
-                        min={today}
+                      <DatePicker
+                        date={newLongTermGoal.targetDate}
+                        onDateChange={(date) => setNewLongTermGoal({ ...newLongTermGoal, targetDate: date })}
+                        placeholder="Select target date"
                       />
                       <div className="flex gap-2">
                         <Button
@@ -377,8 +399,8 @@ export default function HomePage({ user }: HomePageProps) {
                   ) : (
                     longTermGoals.map((goal) => (
                       <Card key={goal.id} className="border-primary/20">
-                        <CardContent className="pt-4 space-y-3">
-                          <div className="flex items-start justify-between">
+                        <CardContent className="pt-2 space-y-3">
+                          <div className="flex items-start justify-between group">
                             <div className="flex-1">
                               <h4 className="font-medium text-base md:text-sm">{goal.title}</h4>
                               {goal.description && (
@@ -390,9 +412,19 @@ export default function HomePage({ user }: HomePageProps) {
                                 Target: {format(new Date(goal.target_date), 'MMM d, yyyy')}
                               </p>
                             </div>
-                            <Badge variant={goal.progress >= 100 ? "default" : "secondary"}>
-                              {goal.progress}%
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={goal.progress >= 100 ? "default" : "secondary"}>
+                                {goal.progress}%
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-0 h-6 w-6 opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+                                onClick={() => deleteLongTermGoal(goal.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                           
                           <div className="space-y-2">
@@ -404,7 +436,7 @@ export default function HomePage({ user }: HomePageProps) {
                                   variant={goal.progress >= percent ? "default" : "outline"}
                                   size="sm"
                                   className="flex-1 text-xs h-8"
-                                  onClick={() => updateLongTermProgress(goal.id, percent)}
+                                  onClick={() => updateLongTermProgress(goal.id, goal.progress === percent ? 0 : percent)}
                                 >
                                   {percent}%
                                 </Button>
@@ -420,6 +452,11 @@ export default function HomePage({ user }: HomePageProps) {
             </Card>
           </div>
         </div>
+
+      {/* Habit Tracker */}
+      <div className="mt-8">
+        <HabitTracker userId={user.id} />
+      </div>
 
       {/* Quick Stats */}
       {(dailyGoals.length > 0 || longTermGoals.length > 0) && (

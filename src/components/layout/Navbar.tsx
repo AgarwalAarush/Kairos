@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { signOut } from '@/lib/auth'
 import { usePomodoro } from '@/contexts/PomodoroContext'
-import { CheckSquare, Calendar, Timer, BarChart3, Home } from 'lucide-react'
+import { CheckSquare, Timer, BarChart3, Home, Menu, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
 
@@ -20,6 +20,7 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { isRunning, timeLeft, formatTime, completeSession } = usePomodoro()
 
   // Handle session completion
@@ -70,11 +71,6 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
       label: 'Pomodoro'
     },
     {
-      href: '/calendar',
-      icon: Calendar,
-      label: 'Calendar'
-    },
-    {
       href: '/analytics',
       icon: BarChart3,
       label: 'Analytics'
@@ -84,15 +80,19 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
   return (
     <header className="border-b bg-card">
       <div className="max-w-7xl mx-auto px-4 py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">{title}</h1>
-            {subtitle && (
-              <p className="text-muted-foreground">{subtitle}</p>
-            )}
+        <div className="flex items-center justify-between">
+          {/* Left side - Title and hamburger menu */}
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">{title}</h1>
+              {subtitle && (
+                <p className="text-muted-foreground hidden sm:block">{subtitle}</p>
+              )}
+            </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          {/* Desktop navigation */}
+          <div className="hidden lg:flex items-center gap-2">
             {/* Navigation buttons */}
             <div className="flex gap-1 mr-2">
               {navigationButtons.map((nav) => {
@@ -134,7 +134,68 @@ export default function Navbar({ user, title, subtitle }: NavbarProps) {
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </Button>
           </div>
+
+          {/* Mobile menu button */}
+          <div className="lg:hidden flex items-center gap-2">
+            {/* Show timer badge on mobile if pomodoro is running */}
+            {isRunning && (
+              <Badge 
+                variant="secondary" 
+                className="h-6 px-2 text-xs font-mono bg-primary text-primary-foreground"
+              >
+                {formatTime(timeLeft)}
+              </Badge>
+            )}
+            
+            <Button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              variant="ghost"
+              size="sm"
+              className="p-2"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
+
+        {/* Mobile navigation menu */}
+        {isMobileMenuOpen && (
+          <div className="lg:hidden mt-4 pt-4 border-t">
+            <div className="flex flex-col space-y-2">
+              {navigationButtons.map((nav) => {
+                const Icon = nav.icon
+                const isActive = pathname === nav.href
+                return (
+                  <Button
+                    key={nav.href}
+                    onClick={() => {
+                      router.push(nav.href)
+                      setIsMobileMenuOpen(false)
+                    }}
+                    variant={isActive ? "default" : "ghost"}
+                    size="sm"
+                    className={`justify-start w-full ${isActive ? "" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <Icon className="h-4 w-4 mr-2" />
+                    {nav.label}
+                  </Button>
+                )
+              })}
+              
+              <div className="flex items-center justify-between pt-2 mt-2 border-t">
+                <ThemeToggle />
+                <Button
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                  variant="outline"
+                  size="sm"
+                >
+                  {isSigningOut ? 'Signing out...' : 'Sign out'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </header>
   )
