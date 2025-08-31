@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { CheckCircle, Circle, Target, TrendingUp, Plus, Check, X, Calendar, Zap, Sparkles, Trash2 } from 'lucide-react'
+import { CheckCircle, Circle, Target, TrendingUp, Plus, Check, X, Calendar, Sparkles, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import quotes from '@/data/motivationalQuotes.json'
 import { createClient } from '@/lib/supabase/client'
@@ -16,6 +16,7 @@ import HabitTracker from '@/components/habits/HabitTracker'
 import { DatePicker } from '@/components/ui/date-picker'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
 interface DailyGoal {
   id: string
@@ -52,6 +53,17 @@ export default function HomePage({ user }: HomePageProps) {
   })
   const [showNewLongTermForm, setShowNewLongTermForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean
+    goalId: string | null
+    goalTitle: string
+    type: 'longterm' | 'daily'
+  }>({
+    isOpen: false,
+    goalId: null,
+    goalTitle: '',
+    type: 'longterm'
+  })
 
   const supabase = createClient()
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -133,7 +145,7 @@ export default function HomePage({ user }: HomePageProps) {
       setDailyGoals(dailyGoals.filter(goal => goal.id !== goalId))
       toast.success('Goal deleted')
     } catch (error) {
-      console.error('Error deleting daily goal:', error?.message || 'Unknown error', error)
+      console.error('Error deleting daily goal:', error instanceof Error ? error.message : 'Unknown error', error)
       toast.error('Failed to delete goal')
     }
   }
@@ -193,10 +205,6 @@ export default function HomePage({ user }: HomePageProps) {
   }
 
   const deleteLongTermGoal = async (goalId: string) => {
-    if (!confirm('Are you sure you want to delete this long-term goal? This action cannot be undone.')) {
-      return
-    }
-
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any)
@@ -212,6 +220,24 @@ export default function HomePage({ user }: HomePageProps) {
       console.error('Error deleting long-term goal:', error)
       toast.error('Failed to delete goal')
     }
+  }
+
+  const handleDeleteLongTermGoal = (goal: LongTermGoal) => {
+    setDeleteConfirm({
+      isOpen: true,
+      goalId: goal.id,
+      goalTitle: goal.title,
+      type: 'longterm'
+    })
+  }
+
+  const handleDeleteDailyGoal = (goal: DailyGoal) => {
+    setDeleteConfirm({
+      isOpen: true,
+      goalId: goal.id,
+      goalTitle: goal.goal,
+      type: 'daily'
+    })
   }
 
   if (loading) {
@@ -258,7 +284,7 @@ export default function HomePage({ user }: HomePageProps) {
                     <Calendar className="h-5 w-5 text-primary" />
                     <CardTitle className="flex items-center gap-2">
                       Today&apos;s Goals
-                      <Sparkles className="h-4 w-4 text-amber-500" title="AI-powered daily goals" />
+                      <Sparkles className="h-4 w-4 text-amber-500" />
                     </CardTitle>
                   </div>
                   <Badge variant={dailyCompletionRate === 100 ? "default" : "secondary"}>
@@ -318,7 +344,7 @@ export default function HomePage({ user }: HomePageProps) {
                           variant="ghost"
                           size="sm"
                           className="p-0 h-6 w-6 opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
-                          onClick={() => deleteDailyGoal(goal.id)}
+                          onClick={() => handleDeleteDailyGoal(goal)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -420,7 +446,7 @@ export default function HomePage({ user }: HomePageProps) {
                                 variant="ghost"
                                 size="sm"
                                 className="p-0 h-6 w-6 opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
-                                onClick={() => deleteLongTermGoal(goal.id)}
+                                onClick={() => handleDeleteLongTermGoal(goal)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -485,6 +511,26 @@ export default function HomePage({ user }: HomePageProps) {
             </CardContent>
           </Card>
         )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirm.isOpen}
+        onOpenChange={(open) => setDeleteConfirm(prev => ({ ...prev, isOpen: open }))}
+        title={`Delete ${deleteConfirm.type === 'longterm' ? 'Long-term Goal' : 'Daily Goal'}`}
+        description={`Are you sure you want to delete "${deleteConfirm.goalTitle}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteConfirm.goalId) {
+            if (deleteConfirm.type === 'longterm') {
+              deleteLongTermGoal(deleteConfirm.goalId)
+            } else {
+              deleteDailyGoal(deleteConfirm.goalId)
+            }
+          }
+        }}
+      />
     </main>
   )
 }

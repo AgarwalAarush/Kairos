@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { DailyGoal, NewDailyGoal } from '@/types/database.types'
-import { format, parseISO, startOfDay, isToday } from 'date-fns'
+import { format } from 'date-fns'
 
 export class DailyGoalsService {
   /**
@@ -76,7 +76,7 @@ export class DailyGoalsService {
   /**
    * Smart goal selection based on user patterns and day of week
    */
-  private static selectSmartGoals(recentGoals: any[]): string[] {
+  private static selectSmartGoals(recentGoals: Array<{ goal: string; [key: string]: unknown }>): string[] {
     const dayOfWeek = new Date().getDay()
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
     
@@ -84,9 +84,6 @@ export class DailyGoalsService {
     const recentGoalTexts = recentGoals.map(g => g.goal?.toLowerCase() || '')
     const hasProductivityFocus = recentGoalTexts.some(g => 
       g.includes('task') || g.includes('work') || g.includes('project') || g.includes('focus')
-    )
-    const hasHealthFocus = recentGoalTexts.some(g => 
-      g.includes('walk') || g.includes('exercise') || g.includes('water') || g.includes('sleep')
     )
     const hasLearningFocus = recentGoalTexts.some(g => 
       g.includes('read') || g.includes('learn') || g.includes('study') || g.includes('skill')
@@ -293,13 +290,13 @@ export class DailyGoalsService {
     }
     
     const totalGoals = goals?.length || 0
-    const completedGoals = goals?.filter((g: any) => g.completed).length || 0
+    const completedGoals = goals?.filter((g: { completed: boolean }) => g.completed).length || 0
     const completionRate = totalGoals > 0 ? (completedGoals / totalGoals) * 100 : 0
     
     // Calculate daily breakdown
     const dailyMap = new Map<string, { total: number; completed: number }>()
     
-    goals?.forEach((goal: any) => {
+    goals?.forEach((goal: { date: string; completed: boolean }) => {
       const date = goal.date
       if (!dailyMap.has(date)) {
         dailyMap.set(date, { total: 0, completed: 0 })

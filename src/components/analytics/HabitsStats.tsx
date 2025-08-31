@@ -15,11 +15,6 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell
 } from 'recharts'
 import { format, parseISO } from 'date-fns'
 
@@ -39,7 +34,7 @@ interface HabitStats {
 
 export default function HabitsStats({ userId }: HabitsStatsProps) {
   const [stats, setStats] = useState<HabitStats | null>(null)
-  const [habits, setHabits] = useState<any[]>([])
+  const [habits, setHabits] = useState<Array<{ id: string; name: string; [key: string]: unknown }>>([])
   const [loading, setLoading] = useState(true)
 
   const loadStats = async () => {
@@ -120,7 +115,7 @@ export default function HabitsStats({ userId }: HabitsStatsProps) {
     label 
   }: { 
     active?: boolean, 
-    payload?: Array<{ value?: number, payload?: any }>, 
+    payload?: Array<{ value?: number, payload?: { name: string; [key: string]: unknown } }>, 
     label?: string 
   }) => {
     if (active && payload && payload.length && label) {
@@ -134,7 +129,7 @@ export default function HabitsStats({ userId }: HabitsStatsProps) {
               Completion Rate: <span className="font-medium">{payload[0]?.value?.toFixed(1)}%</span>
             </p>
             <p className="text-sm text-muted-foreground">
-              Progress: {data?.completed}/{data?.target}
+              Progress: {String(data?.completed || 0)}/{String(data?.target || 0)}
             </p>
           </div>
         </div>
@@ -265,7 +260,7 @@ export default function HabitsStats({ userId }: HabitsStatsProps) {
                   <div className="flex items-center gap-2">
                     <div 
                       className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: habit.color || COLORS[index % COLORS.length] }}
+                      style={{ backgroundColor: String(habit.color || COLORS[index % COLORS.length]) }}
                     />
                     <span className="font-medium" title={habit.fullName}>
                       {habit.name}
@@ -303,7 +298,7 @@ export default function HabitsStats({ userId }: HabitsStatsProps) {
                 <div>
                   <p className="font-medium text-green-800 dark:text-green-200">Outstanding Consistency!</p>
                   <p className="text-sm text-green-700 dark:text-green-300">
-                    You're maintaining an excellent {totalCompletionRate.toFixed(1)}% completion rate across all habits. Keep up the amazing work!
+                    You&apos;re maintaining an excellent {totalCompletionRate.toFixed(1)}% completion rate across all habits. Keep up the amazing work!
                   </p>
                 </div>
               </div>
@@ -315,7 +310,7 @@ export default function HabitsStats({ userId }: HabitsStatsProps) {
                 <div>
                   <p className="font-medium text-amber-800 dark:text-amber-200">Streak Champion! 🔥</p>
                   <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Your best streak is {bestStreak} days! You're building incredible discipline and consistency.
+                    Your best streak is {bestStreak} days! You&apos;re building incredible discipline and consistency.
                   </p>
                 </div>
               </div>

@@ -14,15 +14,13 @@ import {
   X, 
   RotateCcw, 
   Settings, 
-  Target,
   Zap,
-  Calendar,
   Trash2
 } from 'lucide-react'
 import { HabitsService } from '@/lib/services/habitsService'
 import { Habit, HabitCompletion } from '@/types/database.types'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
 interface HabitTrackerProps {
   userId: string
@@ -46,7 +44,7 @@ const HABIT_COLORS = [
 
 export default function HabitTracker({ userId }: HabitTrackerProps) {
   const [habits, setHabits] = useState<HabitWithCompletion[]>([])
-  const [completions, setCompletions] = useState<HabitCompletion[]>([])
+  const [_completions, setCompletions] = useState<HabitCompletion[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingHabit, setEditingHabit] = useState<string | null>(null)
   const [newHabit, setNewHabit] = useState({
@@ -64,6 +62,15 @@ export default function HabitTracker({ userId }: HabitTrackerProps) {
     color: HABIT_COLORS[0]
   })
   const [loading, setLoading] = useState(true)
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean
+    habitId: string | null
+    habitName: string
+  }>({
+    isOpen: false,
+    habitId: null,
+    habitName: ''
+  })
 
   const loadHabits = useCallback(async () => {
     try {
@@ -88,7 +95,7 @@ export default function HabitTracker({ userId }: HabitTrackerProps) {
       
       setHabits(habitsWithCompletion)
     } catch (error) {
-      console.error('Error loading habits:', error?.message || 'Unknown error', error)
+      console.error('Error loading habits:', error instanceof Error ? error.message : 'Unknown error', error)
       toast.error('Failed to load habits')
     } finally {
       setLoading(false)
@@ -123,7 +130,7 @@ export default function HabitTracker({ userId }: HabitTrackerProps) {
       toast.success('Habit added successfully!')
       loadHabits()
     } catch (error) {
-      console.error('Error adding habit:', error?.message || 'Unknown error', error)
+      console.error('Error adding habit:', error instanceof Error ? error.message : 'Unknown error', error)
       toast.error('Failed to add habit')
     }
   }
@@ -134,7 +141,7 @@ export default function HabitTracker({ userId }: HabitTrackerProps) {
       toast.success('Progress recorded!')
       loadHabits()
     } catch (error) {
-      console.error('Error recording progress:', error?.message || 'Unknown error', error)
+      console.error('Error recording progress:', error instanceof Error ? error.message : 'Unknown error', error)
       toast.error('Failed to record progress')
     }
   }
@@ -146,24 +153,28 @@ export default function HabitTracker({ userId }: HabitTrackerProps) {
       toast.success('Habit updated!')
       loadHabits()
     } catch (error) {
-      console.error('Error updating habit:', error?.message || 'Unknown error', error)
+      console.error('Error updating habit:', error instanceof Error ? error.message : 'Unknown error', error)
       toast.error('Failed to update habit')
     }
   }
 
   const deleteHabit = async (habitId: string) => {
-    if (!confirm('Are you sure you want to delete this habit? This action cannot be undone.')) {
-      return
-    }
-
     try {
       await HabitsService.deleteHabit(habitId)
       toast.success('Habit removed!')
       loadHabits()
     } catch (error) {
-      console.error('Error deleting habit:', error?.message || 'Unknown error', error)
+      console.error('Error deleting habit:', error instanceof Error ? error.message : 'Unknown error', error)
       toast.error('Failed to remove habit')
     }
+  }
+
+  const handleDeleteHabit = (habit: HabitWithCompletion) => {
+    setDeleteConfirm({
+      isOpen: true,
+      habitId: habit.id,
+      habitName: habit.name
+    })
   }
 
   if (loading) {
@@ -342,7 +353,7 @@ export default function HabitTracker({ userId }: HabitTrackerProps) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => deleteHabit(habit.id)}
+                        onClick={() => handleDeleteHabit(habit)}
                         className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -485,6 +496,22 @@ export default function HabitTracker({ userId }: HabitTrackerProps) {
             </div>
           </div>
         )}
+
+        {/* Confirmation Dialog */}
+        <ConfirmationDialog
+          open={deleteConfirm.isOpen}
+          onOpenChange={(open) => setDeleteConfirm(prev => ({ ...prev, isOpen: open }))}
+          title="Delete Habit"
+          description={`Are you sure you want to delete "${deleteConfirm.habitName}"? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="destructive"
+          onConfirm={() => {
+            if (deleteConfirm.habitId) {
+              deleteHabit(deleteConfirm.habitId)
+            }
+          }}
+        />
       </CardContent>
     </Card>
   )

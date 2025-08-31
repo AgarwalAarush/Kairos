@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { Habit, NewHabit, HabitCompletion, NewHabitCompletion } from '@/types/database.types'
-import { format, startOfWeek, endOfWeek } from 'date-fns'
+import { format } from 'date-fns'
 
 export class HabitsService {
   /**
@@ -218,8 +218,8 @@ export class HabitsService {
     const activeStreak: Record<string, number> = {}
     
     habits.forEach(habit => {
-      const habitCompletions = completions?.filter((c: any) => c.habit_id === habit.id) || []
-      const daysWithCompletions = new Set(habitCompletions.map((c: any) => c.date))
+      const habitCompletions = completions?.filter((c: { habit_id: string }) => c.habit_id === habit.id) || []
+      const daysWithCompletions = new Set(habitCompletions.map((c: { date: string }) => c.date))
       
       // Calculate completion rate
       completionRate[habit.id] = (daysWithCompletions.size / days) * 100
@@ -255,7 +255,7 @@ export class HabitsService {
       const dayHabits: Record<string, { completed: number, target: number }> = {}
       
       habits.forEach(habit => {
-        const dayCompletion = completions?.find((c: any) => 
+        const dayCompletion = completions?.find((c: { habit_id: string; date: string }) => 
           c.habit_id === habit.id && c.date === dateString
         )
         

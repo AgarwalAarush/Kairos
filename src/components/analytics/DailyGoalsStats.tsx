@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Target, TrendingUp, Zap, Calendar, RefreshCw } from 'lucide-react'
 import { DailyGoalsService } from '@/lib/services/dailyGoalsService'
@@ -234,7 +233,7 @@ export default function DailyGoalsStats({ userId }: DailyGoalsStatsProps) {
                 <div>
                   <p className="font-medium text-green-800 dark:text-green-200">Excellent Performance!</p>
                   <p className="text-sm text-green-700 dark:text-green-300">
-                    You're maintaining a high goal completion rate of {stats.completionRate.toFixed(1)}%. Keep up the great work!
+                    You&apos;re maintaining a high goal completion rate of {stats.completionRate.toFixed(1)}%. Keep up the great work!
                   </p>
                 </div>
               </div>
@@ -246,7 +245,7 @@ export default function DailyGoalsStats({ userId }: DailyGoalsStatsProps) {
                 <div>
                   <p className="font-medium text-amber-800 dark:text-amber-200">On Fire! 🔥</p>
                   <p className="text-sm text-amber-700 dark:text-amber-300">
-                    You're on a {stats.streak}-day streak of perfect goal completion. You're building great habits!
+                    You&apos;re on a {stats.streak}-day streak of perfect goal completion. You&apos;re building great habits!
                   </p>
                 </div>
               </div>
@@ -270,7 +269,7 @@ export default function DailyGoalsStats({ userId }: DailyGoalsStatsProps) {
                 <div>
                   <p className="font-medium text-gray-800 dark:text-gray-200">Get Started</p>
                   <p className="text-sm text-gray-700 dark:text-gray-300">
-                    You haven't set any daily goals yet. The system will automatically generate personalized goals for you each day!
+                    You haven&apos;t set any daily goals yet. The system will automatically generate personalized goals for you each day!
                   </p>
                 </div>
               </div>
